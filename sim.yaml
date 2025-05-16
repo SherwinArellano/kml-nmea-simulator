@@ -1,0 +1,19 @@
+paths/a:
+  start: 3000
+  interval: 500
+  repeat: true
+  mirror: true
+  filter:
+    - gprmc
+
+paths/b:
+  start: 0
+  interval: 1000
+  filter:
+    - gprmc
+
+paths/c:
+  start: 2000
+  interval: 200
+  filter:
+    - gprmc
