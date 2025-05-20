@@ -184,57 +184,135 @@ EMIT_MODE: str
 MQTT_CLIENT: mqtt.Client | None
 MQTT_TOPIC: str
 
-async def run_track(name: str, cfg: TrackCfg, pts: list, sock: socket.socket, target):
+# default NMEA sentence types for sea mode
+NMEA_TYPES: List[str] = ["GPRMC", "GPGGA", "GPGLL"]
+NMEA_BATCH: bool = False
+
+# ───────────────────────── Message builders ─────────────────────────
+
+def get_timestamp(mode: str) -> str:
+    """Return the appropriate UTC timestamp string for land or sea."""
+    if mode == 'land':
+        return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    return time.strftime("%H%M%S", time.gmtime())
+
+
+def build_trk_messages(
+    name: str, ts: str, lat: float, lon: float, vel: float, azi: float
+) -> List[str]:
+    """
+    Build the list of $TRK messages (always exactly one) for land mode.
+    """
+    payload = (
+        f"TRK,{name},{ts},"
+        f"{lat:.6f},{lon:.6f},"
+        f"{vel:.1f},{int(azi)}"
+    )
+    return [f"${payload}{checksum(payload)}\r\n"]
+
+
+def build_nmea_messages(
+    ts: str, lat: float, lon: float, vel_kmh: float
+) -> List[str]:
+    """
+    Build a list of NMEA sentences based on the global NMEA_TYPES and NMEA_BATCH.
+    """
+    lat_dm, ns = deg2dm(lat, is_lat=True)
+    lon_dm, ew = deg2dm(lon, is_lat=False)
+    sog = vel_kmh * 0.539957
+
+    msgs: List[str] = []
+    for nmea in NMEA_TYPES:
+        if nmea == "GPRMC":
+            pay = (
+                f"GPRMC,{ts}.00,A,{lat_dm},{ns},"
+                f"{lon_dm},{ew},{sog:.2f},0.0,,,"
+            )
+        elif nmea == "GPGGA":
+            fix_q, num_sat, hdop, alt = 1, 8, 1.0, 0.0
+            pay = (
+                f"GPGGA,{ts}.00,"
+                f"{lat_dm},{ns},{lon_dm},{ew},"
+                f"{fix_q},{num_sat},{hdop:.1f},{alt:.1f},M,0.0,M,,"
+            )
+        elif nmea == "GPGLL":
+            pay = (
+                f"GPGLL,{lat_dm},{ns},{lon_dm},{ew},"
+                f"{ts}.00,A"
+            )
+        else:
+            continue
+
+        msgs.append(f"${pay}{checksum(pay)}\r\n")
+
+    return msgs
+
+
+def send_messages(
+    messages: List[str],
+    mode: str,
+    sock: socket.socket,
+    target: Tuple[str,int],
+):
+    """
+    Send one or more messages via UDP and/or MQTT, respecting NMEA_BATCH
+    (only applied in sea mode).
+    """
+    # sea‐mode batch only applies when not land
+    if mode != 'land' and NMEA_BATCH:
+        payload = "".join(messages).encode()
+        if EMIT_MODE in ("udp", "both"):
+            sock.sendto(payload, target)
+        if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
+            MQTT_CLIENT.publish(MQTT_TOPIC, payload)
+    else:
+        for msg in messages:
+            data = msg.encode()
+            if EMIT_MODE in ("udp", "both"):
+                sock.sendto(data, target)
+            if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
+                MQTT_CLIENT.publish(MQTT_TOPIC, data)
+
+async def run_track(
+    name: str,
+    cfg: TrackCfg,
+    pts: list,
+    sock: socket.socket,
+    target: Tuple[str,int],
+):
     """Stream one track: walk its path, build messages, and send via UDP or MQTT."""
     if len(pts) < 2:
         return
+
     # derive step distance per update
     v_mps  = cfg.vel_kmh / 3.6
     step_m = v_mps * cfg.freq_ms / 1000
     if step_m <= 0:
         return
+
     # wait initial delay if specified
     await asyncio.sleep(cfg.delay_ms / 1000)
 
-    while True:
-        last_lat = last_lon = None
-        for lat, lon in walk_path(pts, step_m, cfg.loop):
-            # generate timestamps: full UTC for land, hhmmss for sea
-            if cfg.mode == 'land':
-                ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-            else:
-                ts = time.strftime("%H%M%S", time.gmtime())
+    last_lat = last_lon = None
 
-            # compute heading from previous point
+    while True:
+        for lat, lon in walk_path(pts, step_m, cfg.loop):
+            # timestamp and heading
+            ts  = get_timestamp(cfg.mode)
             if last_lat is not None:
                 azi = _GEO.Inverse(last_lat, last_lon, lat, lon)["azi1"] % 360
             else:
                 azi = 0.0
             last_lat, last_lon = lat, lon
 
+            # build messages
             if cfg.mode == 'land':
-                # construct TRK payload: name as truck ID, decimal coords, km/h speed, int heading
-                payload = (
-                    f"TRK,{name},{ts},"
-                    f"{lat:.6f},{lon:.6f},"
-                    f"{cfg.vel_kmh:.1f},{int(azi)}"
-                )
-                msg = f"${payload}{checksum(payload)}\r\n"
+                msgs = build_trk_messages(name, ts, lat, lon, cfg.vel_kmh, azi)
             else:
-                # NMEA GPRMC construction: convert to deg-min format, knots speed
-                lat_dm, ns = deg2dm(lat, is_lat=True)
-                lon_dm, ew = deg2dm(lon, is_lat=False)
-                sog = cfg.vel_kmh * 0.539957
-                pay = (
-                    f"GPRMC,{ts}.00,A,{lat_dm},{ns},"
-                    f"{lon_dm},{ew},{sog:.2f},0.0,,,")
-                msg = f"${pay}{checksum(pay)}\r\n"
+                msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
 
-            # send via selected protocol(s)
-            if EMIT_MODE in ("udp", "both"):
-                sock.sendto(msg.encode(), target)
-            if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT is not None:
-                MQTT_CLIENT.publish(MQTT_TOPIC, msg)
+            # send them
+            send_messages(msgs, cfg.mode, sock, target)
 
             # wait until next update
             await asyncio.sleep(cfg.freq_ms / 1000)
@@ -244,17 +322,62 @@ async def run_track(name: str, cfg: TrackCfg, pts: list, sock: socket.socket, ta
 
 # ───────────────────────────── Main ────────────────────────────────
 
+def build_args():
+    parser = argparse.ArgumentParser(description="Stream KML tracks via UDP, MQTT, or both.")
+
+    parser.add_argument(
+        "kml",
+        help="Path to KML file"
+    )
+
+    parser.add_argument(
+        "udp_target",
+        help="UDP target as host:port"
+    )
+
+    parser.add_argument(
+        "--emit",
+        choices=["udp","mqtt","both"],
+        default="udp",
+        help="Emission mode: udp, mqtt, or both"
+    )
+
+    parser.add_argument(
+        "--mqtt",
+        dest="mqtt_broker",
+        metavar="BROKER:PORT",
+        default="localhost:1883",
+        help="MQTT broker address"
+    )
+
+    parser.add_argument(
+        "--topic",
+        default="kml2nmea",
+        help="MQTT topic"
+    )
+
+    parser.add_argument(
+        "--nmea-types",
+        default="GPRMC,GPGGA,GPGLL",
+        help="Comma-separated NMEA sentences to emit in sea mode (e.g. GPRMC,GPGLL)",
+    )
+
+    parser.add_argument(
+        "--nmea-batch-types",
+        action="store_true",
+        help="if set, emit all selected NMEA sentences in one UDP/MQTT packet per update",
+    )
+
+    return parser.parse_args()
+
 async def main():
     """Parse CLI, load tracks, set up UDP, MQTT, and launch streaming tasks."""
-    parser = argparse.ArgumentParser(description="Stream KML tracks via UDP, MQTT, or both.")
-    parser.add_argument("kml", help="Path to KML file")
-    parser.add_argument("udp_target", help="UDP target as host:port")
-    parser.add_argument("--emit", choices=["udp","mqtt","both"], default="udp",
-                        help="Emission mode: udp, mqtt, or both")
-    parser.add_argument("--mqtt", dest="mqtt_broker", metavar="BROKER:PORT",
-                        default="localhost:1883", help="MQTT broker address")
-    parser.add_argument("--topic", default="kml2nmea", help="MQTT topic")
-    args = parser.parse_args()
+    args = build_args()
+
+    # parse NMEA types for sea mode
+    global NMEA_TYPES, NMEA_BATCH
+    NMEA_TYPES = [t.strip().upper() for t in args.nmea_types.split(",") if t.strip()]
+    NMEA_BATCH = args.nmea_batch_types
 
     # UDP setup
     host, port = args.udp_target.split(':')
@@ -268,7 +391,7 @@ async def main():
     MQTT_TOPIC = args.topic
     if EMIT_MODE in ("mqtt", "both"):
         broker_host, broker_port = args.mqtt_broker.split(':')
-        MQTT_CLIENT = mqtt.Client(protocol=mqtt.MQTTv311)
+        MQTT_CLIENT = mqtt.Client(protocol=mqtt.MQTTv5)
         MQTT_CLIENT.connect(broker_host, int(broker_port))
     else:
         MQTT_CLIENT = None
