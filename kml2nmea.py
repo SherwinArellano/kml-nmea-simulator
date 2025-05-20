@@ -8,7 +8,11 @@ encodes configuration tokens in its `<name>` element, e.g.:
 
 It then spawns **one `asyncio` task per track**, walks the geometry at the
 requested speed, and broadcasts either `$GPRMC` sentences (default) or custom
-`$TRK` messages over UDP in real time, depending on `mode`.
+`$TRK` messages over UDP in real time, depending on `mode` or via MQTT.
+
+A new `--emit` option lets you choose `udp`, `mqtt`, or `both` as output.
+For MQTT, use `--mqtt BROKER:PORT` (default `localhost:1883`) and optional
+`--topic TOPIC` (default `kml2nmea`).
 
 Key features
 ------------
@@ -27,12 +31,13 @@ Modes
 Quick start
 -----------
 ```bash
-python kml2nmea.py mymap.kml 127.0.0.1:10110
-socat -u UDP-RECV:10110 STDOUT   # view the stream
-```
+python kml2nmea.py mymap.kml 127.0.0.1:10110 --emit both --mqtt broker.local:1883 --topic my/topic
+socat -u UDP-RECV:10110 STDOUT           # view UDP stream
+mosquitto_sub -h localhost -t my/topic # listen messages
+```  
 Install deps:
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt paho-mqtt
 ```
 """
 from __future__ import annotations
@@ -43,10 +48,12 @@ import sys        # for command-line args and exit
 import time       # for timestamp generation
 import re         # for parsing inline config
 import xml.etree.ElementTree as ET  # for KML parsing
+import argparse   # for CLI with MQTT support
 from dataclasses import dataclass
 from typing import List, Tuple, Iterator
 
 from geographiclib.geodesic import Geodesic  # ellipsoidal geodesics
+import paho.mqtt.client as mqtt  # for MQTT streaming
 
 # WGS84 ellipsoid
 _GEO = Geodesic.WGS84
@@ -172,8 +179,13 @@ def walk_path(points: List[Tuple[float,float]], step_m: float, loop: bool) -> It
 
 # ────────────────────── Async track coroutine ──────────────────────
 
+# global emission settings
+EMIT_MODE: str
+MQTT_CLIENT: mqtt.Client | None
+MQTT_TOPIC: str
+
 async def run_track(name: str, cfg: TrackCfg, pts: list, sock: socket.socket, target):
-    """Stream one track: walk its path, build messages, and send via UDP."""
+    """Stream one track: walk its path, build messages, and send via UDP or MQTT."""
     if len(pts) < 2:
         return
     # derive step distance per update
@@ -215,11 +227,15 @@ async def run_track(name: str, cfg: TrackCfg, pts: list, sock: socket.socket, ta
                 sog = cfg.vel_kmh * 0.539957
                 pay = (
                     f"GPRMC,{ts}.00,A,{lat_dm},{ns},"
-                    f"{lon_dm},{ew},{sog:.2f},0.0,,,"
-                )
+                    f"{lon_dm},{ew},{sog:.2f},0.0,,,")
                 msg = f"${pay}{checksum(pay)}\r\n"
 
-            sock.sendto(msg.encode(), target)
+            # send via selected protocol(s)
+            if EMIT_MODE in ("udp", "both"):
+                sock.sendto(msg.encode(), target)
+            if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT is not None:
+                MQTT_CLIENT.publish(MQTT_TOPIC, msg)
+
             # wait until next update
             await asyncio.sleep(cfg.freq_ms / 1000)
 
@@ -229,20 +245,37 @@ async def run_track(name: str, cfg: TrackCfg, pts: list, sock: socket.socket, ta
 # ───────────────────────────── Main ────────────────────────────────
 
 async def main():
-    """Parse CLI, load tracks, create UDP socket, and launch streaming tasks."""
-    if len(sys.argv) != 3:
-        sys.exit("usage: python kml2nmea.py map.kml HOST:PORT")
-    kml, hp = sys.argv[1:]
-    host, port = hp.split(':')
+    """Parse CLI, load tracks, set up UDP, MQTT, and launch streaming tasks."""
+    parser = argparse.ArgumentParser(description="Stream KML tracks via UDP, MQTT, or both.")
+    parser.add_argument("kml", help="Path to KML file")
+    parser.add_argument("udp_target", help="UDP target as host:port")
+    parser.add_argument("--emit", choices=["udp","mqtt","both"], default="udp",
+                        help="Emission mode: udp, mqtt, or both")
+    parser.add_argument("--mqtt", dest="mqtt_broker", metavar="BROKER:PORT",
+                        default="localhost:1883", help="MQTT broker address")
+    parser.add_argument("--topic", default="kml2nmea", help="MQTT topic")
+    args = parser.parse_args()
+
+    # UDP setup
+    host, port = args.udp_target.split(':')
     port = int(port)
-
-    tracks = load_tracks(kml)
-    if not tracks:
-        sys.exit("No tracks found.")
-
-    # set up UDP socket for all tracks
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     target = (host, port)
+
+    # MQTT setup
+    global EMIT_MODE, MQTT_CLIENT, MQTT_TOPIC
+    EMIT_MODE = args.emit
+    MQTT_TOPIC = args.topic
+    if EMIT_MODE in ("mqtt", "both"):
+        broker_host, broker_port = args.mqtt_broker.split(':')
+        MQTT_CLIENT = mqtt.Client(protocol=mqtt.MQTTv311)
+        MQTT_CLIENT.connect(broker_host, int(broker_port))
+    else:
+        MQTT_CLIENT = None
+
+    tracks = load_tracks(args.kml)
+    if not tracks:
+        sys.exit("No tracks found.")
 
     # launch one asyncio task per track
     tasks = [asyncio.create_task(run_track(n, c, p, sock, target)) for n, c, p in tracks]
