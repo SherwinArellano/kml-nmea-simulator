@@ -430,4 +430,8 @@ async def main():
     await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nInterrupted by user, shutting down.")
+        sys.exit(0)
