@@ -106,7 +106,7 @@ class TrackCfg:
     delay_ms: int  = 0     # initial delay before streaming (ms)
     loop:    bool  = False # whether to return back to initial starting point
     repeat:  bool  = False # whether to restart after finishing
-    mode:    str   = "sea"  # 'sea' for NMEA, 'land' for TRK
+    mode:    str   = "nmea"  # 'nmea', 'trk-auto', or 'trk-container'
 
 # regex splits quoted name and optional tokens
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
@@ -118,17 +118,43 @@ def parse_name(text: str) -> Tuple[str, TrackCfg]:
         raise ValueError(f"Invalid name/text: {text!r}")
     name = m.group(1) or m.group(2)
     cfg  = TrackCfg()
-    # iterate tokens like 'velocity=30', 'loop', 'mode=land'
+    seen_interval = False
+
+    # iterate tokens like 'velocity=30', 'interval=500', 'mode=trk-container'
     for tok in m.group(3).split():
         if "=" in tok:
             k, v = tok.split("=",1)
-            if k == "velocity": cfg.vel_kmh = float(v)
-            elif k == "interval":    cfg.interval_ms = int(v)
-            elif k == "delay":   cfg.delay_ms = int(v)
-            elif k == "mode":    cfg.mode   = v.lower()
+            if k == "velocity":
+                cfg.vel_kmh = float(v)
+            elif k == "interval":
+                cfg.interval_ms = int(v)
+                seen_interval = True
+            elif k == "delay":
+                cfg.delay_ms = int(v)
+            elif k == "mode":
+                cfg.mode = v.lower()
         else:
-            if tok == "loop":    cfg.loop   = True
-            elif tok == "repeat": cfg.repeat = True
+            if tok == "loop":
+                cfg.loop = True
+            elif tok == "repeat":
+                cfg.repeat = True
+
+    # normalize mode names
+    lm = cfg.mode.lower()
+    if lm in ("sea", "nmea"):
+        cfg.mode = "nmea"
+    elif lm in ("land", "trk-auto"):
+        cfg.mode = "trk-auto"
+    elif lm in ("trk-container",):
+        cfg.mode = "trk-container"
+    else:
+        # unknown: fall back to nmea
+        cfg.mode = "nmea"
+
+    # default interval for container if not overridden
+    if cfg.mode == "trk-container" and not seen_interval:
+        cfg.interval_ms = 60_000
+
     return name, cfg
 
 # ───────────────────────── KML loader ──────────────────────────────
@@ -187,7 +213,7 @@ EMIT_MODE: str
 MQTT_CLIENT: mqtt.Client | None
 MQTT_TOPIC: str
 
-# default NMEA sentence types for sea mode
+# default NMEA sentence types for sea/NMEA mode
 NMEA_TYPES: List[str] = ["GPRMC", "GPGGA", "GPGLL"]
 NMEA_BATCH: bool = False
 
@@ -195,7 +221,7 @@ NMEA_BATCH: bool = False
 
 def get_timestamp(mode: str) -> str:
     """Return the appropriate UTC timestamp string for land or sea."""
-    if mode == 'land':
+    if mode.startswith('trk'):
         return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     return time.strftime("%H%M%S", time.gmtime())
 
@@ -262,7 +288,7 @@ def send_messages(
     (only applied in sea mode).
     """
     # sea‐mode batch only applies when not land
-    if mode != 'land' and NMEA_BATCH:
+    if not mode.startswith('trk') and NMEA_BATCH:
         payload = "".join(messages).encode()
         if EMIT_MODE in ("udp", "both"):
             sock.sendto(payload, target)
@@ -309,7 +335,7 @@ async def run_track(
             last_lat, last_lon = lat, lon
 
             # build messages
-            if cfg.mode == 'land':
+            if cfg.mode.startswith('trk'):
                 msgs = build_trk_messages(name, ts, lat, lon, cfg.vel_kmh, azi)
             else:
                 msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
