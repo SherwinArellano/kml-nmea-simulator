@@ -32,7 +32,7 @@ socat -u UDP-RECV:10110 STDOUT   # view the stream
 ```
 Install deps:
 ```bash
-pip install geographiclib
+pip install -r requirements.txt
 ```
 """
 from __future__ import annotations
