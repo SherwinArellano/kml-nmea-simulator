@@ -107,6 +107,7 @@ class TrackCfg:
     loop:    bool  = False # whether to return back to initial starting point
     repeat:  bool  = False # whether to restart after finishing
     mode:    str   = "nmea"  # 'nmea', 'trk-auto', or 'trk-container'
+    source:  str   = ""     # new: vehicle type (truck, auto, ship, etc.)
 
 # regex splits quoted name and optional tokens
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
@@ -133,6 +134,8 @@ def parse_name(text: str) -> Tuple[str, TrackCfg]:
                 cfg.delay_ms = int(v)
             elif k == "mode":
                 cfg.mode = v.lower()
+            elif k == "source":
+                cfg.source = v.lower()
         else:
             if tok == "loop":
                 cfg.loop = True
@@ -227,13 +230,13 @@ def get_timestamp(mode: str) -> str:
 
 
 def build_trk_messages(
-    name: str, ts: str, lat: float, lon: float, vel: float, azi: float
+    name: str, source: str, ts: str, lat: float, lon: float, vel: float, azi: float
 ) -> List[str]:
     """
     Build the list of $TRK messages (always exactly one) for land mode.
     """
     payload = (
-        f"TRK,{name},{ts},"
+        f"TRK,{name},{source},{ts},"
         f"{lat:.6f},{lon:.6f},"
         f"{vel:.1f},{int(azi)}"
     )
@@ -302,6 +305,7 @@ def send_messages(
             if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
                 MQTT_CLIENT.publish(MQTT_TOPIC, data)
 
+
 async def run_track(
     name: str,
     cfg: TrackCfg,
@@ -336,7 +340,8 @@ async def run_track(
 
             # build messages
             if cfg.mode.startswith('trk'):
-                msgs = build_trk_messages(name, ts, lat, lon, cfg.vel_kmh, azi)
+                source = cfg.source or "unknown"
+                msgs = build_trk_messages(name, source, ts, lat, lon, cfg.vel_kmh, azi)
             else:
                 msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
 
