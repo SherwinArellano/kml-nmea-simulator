@@ -42,7 +42,9 @@ pip install -r requirements.txt paho-mqtt
 """
 from __future__ import annotations
 
-import asyncio  # for concurrent track tasks
+import os         # for finding *.kml files
+import glob       # for checking if a path is a directory
+import asyncio    # for concurrent track tasks
 import socket     # for UDP streaming
 import sys        # for command-line args and exit
 import time       # for timestamp generation
@@ -51,6 +53,7 @@ import xml.etree.ElementTree as ET  # for KML parsing
 import argparse   # for CLI with MQTT support
 from dataclasses import dataclass
 from typing import List, Tuple, Iterator
+
 
 from geographiclib.geodesic import Geodesic  # ellipsoidal geodesics
 import paho.mqtt.client as mqtt  # for MQTT streaming
@@ -327,7 +330,8 @@ def build_args():
 
     parser.add_argument(
         "kml",
-        help="Path to KML file"
+        nargs="+",
+        help="Path(s) to KML file or directory containing KMLs"
     )
 
     parser.add_argument(
@@ -397,14 +401,32 @@ async def main():
     else:
         MQTT_CLIENT = None
 
-    tracks = load_tracks(args.kml)
-    if not tracks:
-        sys.exit("No tracks found.")
+    # — expand all inputs (files or dirs) into a flat list of .kml files
+    kml_paths: list[str] = []
+    for path in args.kml:
+        if os.path.isdir(path):
+            kml_paths.extend(glob.glob(os.path.join(path, '*.kml')))
+        elif path.lower().endswith('.kml'):
+            kml_paths.append(path)
 
-    # launch one asyncio task per track
-    tasks = [asyncio.create_task(run_track(n, c, p, sock, target)) for n, c, p in tracks]
-    for n, c, _ in tracks:
-        print(f"▶ {n}: {c}")
+    if not kml_paths:
+        sys.exit("No KML files found in specified paths.")
+
+    # — load tracks from every KML file found, keeping source path
+    # new shape: (name, cfg, coords, source_path)
+    tracks: list[tuple[str, TrackCfg, list[tuple[float,float]], str]] = []
+    for src in kml_paths:
+        for name, cfg, coords in load_tracks(src):
+            tracks.append((name, cfg, coords, src))
+
+    if not tracks:
+        sys.exit("No tracks found in the provided KML files.")
+
+    # — launch one asyncio task per track
+    tasks = [asyncio.create_task(run_track(name, cfg, coords, sock, target)) for name, cfg, coords, _ in tracks]
+    for name, cfg, _, src in tracks:
+        print(f"▶ {name} (from {src}): {cfg}")
+
     await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
