@@ -4,7 +4,7 @@
 This script reads a **Google My Maps KML export** where each LineString (or route)
 encodes configuration tokens in its `<name>` element, e.g.: 
 
-    "Truck 1" velocity=30 freq=500 loop delay=2000 repeat mode=land
+    "Truck 1" velocity=30 interval=500 loop delay=2000 repeat mode=land
 
 It then spawns **one `asyncio` task per track**, walks the geometry at the
 requested speed, and broadcasts either `$GPRMC` sentences (default) or custom
@@ -17,7 +17,7 @@ For MQTT, use `--mqtt BROKER:PORT` (default `localhost:1883`) and optional
 Key features
 ------------
 * **Inline config**: no external JSON/YAML; all in the KML name (incl. `mode`).
-* **Per-track control**: `velocity`, `freq` (ms), `delay` (ms), `loop`, `repeat`, `mode`.
+* **Per-track control**: `velocity`, `interval` (ms), `delay` (ms), `loop`, `repeat`, `mode`.
 * **Geodesic accuracy**: uses `geographiclib` for ellipsoidal distance.
 * **Non-blocking**: each track runs concurrently via `asyncio` tasks.
 
@@ -102,7 +102,7 @@ def checksum(payload: str) -> str:
 class TrackCfg:
     """Configuration parameters for a single track."""
     vel_kmh: float = 5.0   # speed in km/h
-    freq_ms: int   = 1000  # update frequency in milliseconds
+    interval_ms: int   = 1000  # update interval in milliseconds between messages
     delay_ms: int  = 0     # initial delay before streaming (ms)
     loop:    bool  = False # whether to return back to initial starting point
     repeat:  bool  = False # whether to restart after finishing
@@ -123,7 +123,7 @@ def parse_name(text: str) -> Tuple[str, TrackCfg]:
         if "=" in tok:
             k, v = tok.split("=",1)
             if k == "velocity": cfg.vel_kmh = float(v)
-            elif k == "freq":    cfg.freq_ms = int(v)
+            elif k == "interval":    cfg.interval_ms = int(v)
             elif k == "delay":   cfg.delay_ms = int(v)
             elif k == "mode":    cfg.mode   = v.lower()
         else:
@@ -289,7 +289,7 @@ async def run_track(
 
     # derive step distance per update
     v_mps  = cfg.vel_kmh / 3.6
-    step_m = v_mps * cfg.freq_ms / 1000
+    step_m = v_mps * cfg.interval_ms / 1000
     if step_m <= 0:
         return
 
@@ -318,7 +318,7 @@ async def run_track(
             send_messages(msgs, cfg.mode, sock, target)
 
             # wait until next update
-            await asyncio.sleep(cfg.freq_ms / 1000)
+            await asyncio.sleep(cfg.interval_ms / 1000)
 
         if not cfg.repeat:
             break
