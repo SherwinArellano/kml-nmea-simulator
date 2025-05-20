@@ -281,29 +281,30 @@ def build_nmea_messages(
 
 
 def send_messages(
+    name: str,
     messages: List[str],
     mode: str,
     sock: socket.socket,
-    target: Tuple[str,int],
+    target: Tuple[str, int],
 ):
     """
     Send one or more messages via UDP and/or MQTT, respecting NMEA_BATCH
     (only applied in sea mode).
     """
-    # sea‐mode batch only applies when not land
-    if not mode.startswith('trk') and NMEA_BATCH:
-        payload = "".join(messages).encode()
-        if EMIT_MODE in ("udp", "both"):
-            sock.sendto(payload, target)
-        if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
-            MQTT_CLIENT.publish(MQTT_TOPIC, payload)
+    payloads: List[bytes] = []
+
+    if not mode.startswith("trk") and NMEA_BATCH:
+        # Combine into one payload
+        payloads.append("".join(messages).encode())
     else:
-        for msg in messages:
-            data = msg.encode()
-            if EMIT_MODE in ("udp", "both"):
-                sock.sendto(data, target)
-            if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
-                MQTT_CLIENT.publish(MQTT_TOPIC, data)
+        # Add each message individually
+        payloads.extend(msg.encode() for msg in messages)
+
+    for data in payloads:
+        if EMIT_MODE in ("udp", "both"):
+            sock.sendto(data, target)
+        if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
+            MQTT_CLIENT.publish(f"{MQTT_TOPIC}/{mode}/{name}", data)
 
 
 async def run_track(
@@ -346,7 +347,7 @@ async def run_track(
                 msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
 
             # send them
-            send_messages(msgs, cfg.mode, sock, target)
+            send_messages(name, msgs, cfg.mode, sock, target)
 
             # wait until next update
             await asyncio.sleep(cfg.interval_ms / 1000)
