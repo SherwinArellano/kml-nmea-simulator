@@ -396,7 +396,7 @@ async def main():
     MQTT_TOPIC = args.topic
     if EMIT_MODE in ("mqtt", "both"):
         broker_host, broker_port = args.mqtt_broker.split(':')
-        MQTT_CLIENT = mqtt.Client(protocol=mqtt.MQTTv5)
+        MQTT_CLIENT = mqtt.Client(protocol=mqtt.MQTTv311, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
         MQTT_CLIENT.connect(broker_host, int(broker_port))
     else:
         MQTT_CLIENT = None
