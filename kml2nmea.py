@@ -358,6 +358,7 @@ def build_args():
 
     parser.add_argument(
         "--nmea-types",
+        choices=["GPRMC","GPGGA","GPGLL"],
         default="GPRMC,GPGGA,GPGLL",
         help="Comma-separated NMEA sentences to emit in sea mode (e.g. GPRMC,GPGLL)",
     )
