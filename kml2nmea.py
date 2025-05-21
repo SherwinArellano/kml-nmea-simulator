@@ -1,43 +1,48 @@
 #!/usr/bin/env python3
-"""kml2nmea.py - Concurrent My Maps → live NMEA or TRK streamer
-================================================================
-This script reads a **Google My Maps KML export** where each LineString (or route)
-encodes configuration tokens in its `<name>` element, e.g.: 
+"""
+kml2nmea.py - Concurrent My Maps → live NMEA or custom TRK streamer & file generator
+=====================================================================
+This script reads Google My Maps KML exports and spawns one asyncio task per track,
+streaming live NMEA ($GPRMC, $GPGGA, $GPGLL) or custom $TRK messages over UDP and/or MQTT,
+or generating timestamped output files. Configuration is embedded inline in each KML
+LineString `<name>` element using tokens, for example:
 
-    "Truck 1" velocity=30 interval=500 loop delay=2000 repeat mode=land
-
-It then spawns **one `asyncio` task per track**, walks the geometry at the
-requested speed, and broadcasts either `$GPRMC` sentences (default) or custom
-`$TRK` messages over UDP in real time, depending on `mode` or via MQTT.
-
-A new `--emit` option lets you choose `udp`, `mqtt`, or `both` as output.
-For MQTT, use `--mqtt BROKER:PORT` (default `localhost:1883`) and optional
-`--topic TOPIC` (default `kml2nmea`).
+    "Truck 1" velocity=30 interval=500 delay=2000 loop repeat mode=trk-auto source=truck
 
 Key features
 ------------
-* **Inline config**: no external JSON/YAML; all in the KML name (incl. `mode`).
-* **Per-track control**: `velocity`, `interval` (ms), `delay` (ms), `loop`, `repeat`, `mode`.
-* **Geodesic accuracy**: uses `geographiclib` for ellipsoidal distance.
-* **Non-blocking**: each track runs concurrently via `asyncio` tasks.
+* **Inline config**: define per-track parameters (`velocity`, `interval`, `delay`, `loop`, `repeat`, `mode`, `source`) directly in KML names.
+* **Geodesic accuracy**: ellipsoidal distance and interpolation using `geographiclib`.
+* **Concurrent streaming**: non-blocking `asyncio` tasks per track.
+* **Modes**:
+    - **NMEA (sea)**: emits selected NMEA sentences (`$GPRMC`, `$GPGGA`, `$GPGLL`), with optional batching.
+    - **TRK (land)**: emits custom `$TRK` messages; `trk-auto` (per-update) and `trk-container` (per-minute).
+* **Output**:
+    - **Live streaming**: UDP (`--udp HOST:PORT`) and/or MQTT (`--mqtt BROKER:PORT`, `--topic TOPIC`).
+    - **File generation**: single merged file (`--filegen single --outfile FILE`) or one file per track (`--filegen multi --outdir DIR`).
 
-Modes
+Usage
 -----
-* `mode=sea` (default): emits NMEA `$GPRMC` sentences.
-* `mode=land`: emits `$TRK` messages:
-
-    $TRK,<ID_Camion>,<Timestamp>,<Latitude>,<Longitude>,<Velocity>,<Direction>*<Checksum>
+```bash
+python kml2nmea.py [KML_PATHS...] \
+    [--udp [HOST:PORT]] \
+    [--mqtt [BROKER:PORT]] \
+    [--topic TOPIC] \
+    [--nmea-types TYPES] [--nmea-batch-types] \
+    [--filegen {single,multi}] [--outdir DIR] [--outfile FILE]
+```
 
 Quick start
------------
+------------
 ```bash
-python kml2nmea.py mymap.kml 127.0.0.1:10110 --emit both --mqtt broker.local:1883 --topic my/topic
-socat -u UDP-RECV:10110 STDOUT           # view UDP stream
-mosquitto_sub -h localhost -t my/topic # listen messages
-```  
+python kml2nmea.py --udp --mqtt --filegen single
+socat -u UDP-RECV:10110 STDOUT         # view UDP stream
+mosquitto_sub -h localhost -t kml2nmea # listen messages
+```
+
 Install deps:
 ```bash
-pip install -r requirements.txt paho-mqtt
+pip install -r requirements.txt
 ```
 """
 from __future__ import annotations
@@ -52,7 +57,7 @@ import re         # for parsing inline config
 import xml.etree.ElementTree as ET  # for KML parsing
 import argparse   # for CLI with MQTT support
 from dataclasses import dataclass
-from typing import List, Tuple, Iterator
+from typing import List, Literal, Tuple, Iterator
 
 
 from geographiclib.geodesic import Geodesic  # ellipsoidal geodesics
@@ -108,6 +113,13 @@ class TrackCfg:
     repeat:  bool  = False # whether to restart after finishing
     mode:    str   = "nmea"  # 'nmea', 'trk-auto', or 'trk-container'
     source:  str   = ""     # new: vehicle type (truck, auto, ship, etc.)
+
+@dataclass
+class TrackInfo:
+    name: str
+    cfg: TrackCfg
+    coords: list[tuple[float, float]]
+    source: str
 
 # regex splits quoted name and optional tokens
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
@@ -212,7 +224,8 @@ def walk_path(points: List[Tuple[float,float]], step_m: float, loop: bool) -> It
 # ────────────────────── Async track coroutine ──────────────────────
 
 # global emission settings
-EMIT_MODE: str
+UDP_CLIENT: socket.socket | None
+UDP_TARGET: Tuple[str, int]
 MQTT_CLIENT: mqtt.Client | None
 MQTT_TOPIC: str
 
@@ -292,8 +305,6 @@ def send_messages(
     name: str,
     messages: List[str],
     mode: str,
-    sock: socket.socket,
-    target: Tuple[str, int],
 ):
     """
     Send one or more messages via UDP and/or MQTT, respecting NMEA_BATCH
@@ -309,18 +320,14 @@ def send_messages(
         payloads.extend(msg.encode() for msg in messages)
 
     for data in payloads:
-        if EMIT_MODE in ("udp", "both"):
-            sock.sendto(data, target)
-        if EMIT_MODE in ("mqtt", "both") and MQTT_CLIENT:
-            MQTT_CLIENT.publish(f"{MQTT_TOPIC}/{mode}/{name}", data)
+        if UDP_CLIENT: UDP_CLIENT.sendto(data, UDP_TARGET)
+        if MQTT_CLIENT: MQTT_CLIENT.publish(f"{MQTT_TOPIC}/{mode}/{name}", data)
 
 
 async def run_track(
     name: str,
     cfg: TrackCfg,
     pts: list,
-    sock: socket.socket,
-    target: Tuple[str,int],
 ):
     """Stream one track: walk its path, build messages, and send via UDP or MQTT."""
     if len(pts) < 2:
@@ -355,7 +362,7 @@ async def run_track(
                 msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
 
             # send them
-            send_messages(name, msgs, cfg.mode, sock, target)
+            send_messages(name, msgs, cfg.mode)
 
             # wait until next update
             await asyncio.sleep(cfg.interval_ms / 1000)
@@ -365,14 +372,17 @@ async def run_track(
 
 # ────────────────────────── File Generation ─────────────────────────────
 
-def generate_files(tracks, args):
+async def generate_files(tracks: List[TrackInfo], args: Args):
     """Generate files synchronously."""
+    if not args.filegen_mode:
+        return
+
+    print("Generating files...")
+
     now = int(time.time())
 
-    # --- GLOBAL MODE ---
-    if args.file_mode == "global":
-        if not args.outfile:
-            sys.exit("Error: --outfile required in global mode")
+    # --- SINGLE MODE ---
+    if args.filegen_mode == "single":
         # ensure parent dir exists
         od = os.path.dirname(args.outfile) or "."
         os.makedirs(od, exist_ok=True)
@@ -382,11 +392,10 @@ def generate_files(tracks, args):
         for name, cfg, pts, src in tracks:
             start = now + cfg.delay_ms / 1000
             step_s = cfg.interval_ms / 1000
-            step_m = cfg.vel_kmh/3.6 * cfg.interval_ms/1000
+            step_m = cfg.vel_kmh / 3.6 * cfg.interval_ms / 1000
 
             for idx, (lat, lon) in enumerate(walk_path(pts, step_m, cfg.loop)):
                 ts_sec = start + idx*step_s
-                print(f"{name}: {ts_sec} (step_s: {step_s})")
                 ts = fmt_timestamp(ts_sec, cfg.mode)
                 if cfg.mode.startswith("trk"):
                     msgs = build_trk_messages(name, cfg.source or "unknown", ts, lat, lon, cfg.vel_kmh, 0.0)
@@ -400,69 +409,86 @@ def generate_files(tracks, args):
         with open(args.outfile, "w", buffering=1) as fh:
             for _, line in all_msgs:
                 fh.write(line)
-        
-        return
 
-    # --- SINGLE MODE ---
+    # --- MULTI MODE ---
     # ensure outdir exists
-    os.makedirs(args.outdir, exist_ok=True)
+    else:
+        os.makedirs(args.outdir, exist_ok=True)
 
-    for name, cfg, pts, src_path in tracks:
-        kmlbase = os.path.splitext(os.path.basename(src_path))[0]
-        # make "snake-case" track name
-        safe = re.sub(r'[^A-Za-z0-9]+', "-", name).strip("-").lower()
-        ext = ".trk" if cfg.mode.startswith("trk") else ".nmea"
-        path = os.path.join(args.outdir, f"{kmlbase}.{safe}{ext}")
+        for name, cfg, pts, src_path in tracks:
+            kmlbase = os.path.splitext(os.path.basename(src_path))[0]
+            # make "snake-case" track name
+            safe = re.sub(r'[^A-Za-z0-9]+', "-", name).strip("-").lower()
+            ext = ".trk" if cfg.mode.startswith("trk") else ".nmea"
+            path = os.path.join(args.outdir, f"{kmlbase}.{safe}{ext}")
 
-        start = now + cfg.delay_ms / 1000
-        step_s = cfg.interval_ms / 1000
-        step_m = cfg.vel_kmh/3.6 * cfg.interval_ms/1000
+            start = now + cfg.delay_ms / 1000
+            step_s = cfg.interval_ms / 1000
+            step_m = cfg.vel_kmh / 3.6 * cfg.interval_ms / 1000
 
-        with open(path, "w", buffering=1) as fh:
-            for idx, (lat, lon) in enumerate(walk_path(pts, step_m, cfg.loop)):
-                ts = fmt_timestamp(start + idx*step_s, cfg.mode)
-                if cfg.mode.startswith("trk"):
-                    msgs = build_trk_messages(name, cfg.source or "unknown", ts, lat, lon, cfg.vel_kmh, 0.0)
-                else:
-                    msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
-                for m in msgs:
-                    fh.write(m)
+            with open(path, "w", buffering=1) as fh:
+                for idx, (lat, lon) in enumerate(walk_path(pts, step_m, cfg.loop)):
+                    ts = fmt_timestamp(start + idx*step_s, cfg.mode)
+                    if cfg.mode.startswith("trk"):
+                        msgs = build_trk_messages(name, cfg.source or "unknown", ts, lat, lon, cfg.vel_kmh, 0.0)
+                    else:
+                        msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
+                    for m in msgs:
+                        fh.write(m)
+
+    print("Files generated successfully.")
 
 # ───────────────────────────── Main ────────────────────────────────
 
-def build_args():
-    parser = argparse.ArgumentParser(description="Stream KML tracks via UDP, MQTT, or both.")
+class Args(argparse.Namespace):
+    kml: list[str]
+    udp_target: str
+    mqtt_broker: str
+    topic: str
+    nmea_types: str
+    nmea_batch_types: bool
+    filegen_mode: Literal["single", "multi"]
+    outdir: str
+    outfile: str
+
+def build_args() -> Args:
+    parser = argparse.ArgumentParser(
+        description="Stream KML tracks via UDP/MQTT or generate them as files.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
 
     parser.add_argument(
         "kml",
-        nargs="+",
-        help="Path(s) to KML file or directory containing KMLs"
+        nargs="*",
+        default=["."],
+        help="Path(s) to KML file or directory containing KMLs;\n"
+             "If no files or directories provided, uses the current directory."
     )
 
     parser.add_argument(
-        "udp_target",
-        help="UDP target as host:port"
-    )
-
-    parser.add_argument(
-        "--emit",
-        choices=["udp","mqtt","both"],
-        default="udp",
-        help="Emission mode: udp, mqtt, or both"
+        "--udp",
+        dest="udp_target",
+        nargs="?",
+        const="localhost:10110",
+        metavar="HOST:PORT",
+        help="UDP target address;\n"
+             "If address not provided, defaults to localhost:10110"
     )
 
     parser.add_argument(
         "--mqtt",
         dest="mqtt_broker",
+        nargs="?",
+        const="localhost:1883",
         metavar="BROKER:PORT",
-        default="localhost:1883",
-        help="MQTT broker address"
+        help="MQTT broker address;\n"
+             "If address not provided, defaults to localhost:1883"
     )
 
     parser.add_argument(
         "--topic",
         default="kml2nmea",
-        help="MQTT topic"
+        help="MQTT topic (default: kml2nmea)"
     )
 
     parser.add_argument(
@@ -479,54 +505,64 @@ def build_args():
     )
 
     parser.add_argument(
-        "--file-mode",
-        choices=["stream","global","single"],
-        default="stream",
-        help="stream = live output (default); "
-             "global = write one merged file; "
-             "single = one file per track"
+        "--filegen",
+        dest="filegen_mode",
+        choices=["single","multi"],
+        help="single = write one merged file (default);\n"
+             "multi = one file per track"
     )
 
     parser.add_argument(
         "--outdir",
         default=".",
         metavar="DIR",
-        help="Directory for single-track files "
-             "(ignored in global mode)"
+        help="Directory for single-track files\n"
+             "(ignored in 'single' filegen mode)"
     )
 
     parser.add_argument(
         "--outfile",
+        default="output.trks",
         metavar="FILE",
-        help="Path to merged output file for global mode"
+        help="Path to merged output file for global mode\n"
+             "(ignored in 'multi' filegen mode)"
     )
 
-    return parser.parse_args()
+    return parser.parse_args(namespace=Args())
 
 
 async def main():
     """Parse CLI, load tracks, set up UDP, MQTT, and launch streaming tasks."""
     args = build_args()
 
-    # parse NMEA types for sea mode
+    if not args.udp_target and not args.mqtt_broker and not args.filegen_mode:
+        sys.exit("No running mode set. Please provide either --udp, --mqtt, or --filegen option. Use -h for more info.")
+
+    # parse NMEA types
     global NMEA_TYPES, NMEA_BATCH
     NMEA_TYPES = [t.strip().upper() for t in args.nmea_types.split(",") if t.strip()]
     NMEA_BATCH = args.nmea_batch_types
 
     # UDP setup
-    host, port = args.udp_target.split(':')
-    port = int(port)
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    target = (host, port)
+    global UDP_CLIENT, UDP_TARGET
+    if args.udp_target:
+        host, port = args.udp_target.split(':')
+        port = int(port)
+        UDP_CLIENT = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        UDP_TARGET = (host, port)
+        print(f"UDP client is set on {args.udp_target}")
+    else:
+        UDP_CLIENT = None
 
     # MQTT setup
-    global EMIT_MODE, MQTT_CLIENT, MQTT_TOPIC
-    EMIT_MODE = args.emit
-    MQTT_TOPIC = args.topic
-    if EMIT_MODE in ("mqtt", "both"):
+    global MQTT_CLIENT, MQTT_TOPIC
+    if args.mqtt_broker:
+        MQTT_TOPIC = args.topic
+
         broker_host, broker_port = args.mqtt_broker.split(':')
         MQTT_CLIENT = mqtt.Client(protocol=mqtt.MQTTv311, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
         MQTT_CLIENT.connect(broker_host, int(broker_port))
+        print(f"MQTT client is set on {args.mqtt_broker} with topic: {MQTT_TOPIC}")
     else:
         MQTT_CLIENT = None
 
@@ -542,8 +578,7 @@ async def main():
         sys.exit("No KML files found in specified paths.")
 
     # — load tracks from every KML file found, keeping source path
-    # new shape: (name, cfg, coords, source_path)
-    tracks: list[tuple[str, TrackCfg, list[tuple[float,float]], str]] = []
+    tracks: List[TrackInfo] = []
     for src in kml_paths:
         for name, cfg, coords in load_tracks(src):
             tracks.append((name, cfg, coords, src))
@@ -551,13 +586,9 @@ async def main():
     if not tracks:
         sys.exit("No tracks found in the provided KML files.")
 
-    # if file-mode, generate & exit
-    if args.file_mode in ("global","single"):
-        generate_files(tracks, args)
-        sys.exit(0)
-
-    # — launch one asyncio task per track
-    tasks = [asyncio.create_task(run_track(name, cfg, coords, sock, target)) for name, cfg, coords, _ in tracks]
+    # launch one asyncio task per track and generate files if specified
+    tasks = [asyncio.create_task(generate_files(tracks, args))]
+    tasks.extend(asyncio.create_task(run_track(name, cfg, coords)) for name, cfg, coords, _ in tracks)
     for name, cfg, _, src in tracks:
         print(f"▶ {name} (from {src}): {cfg}")
 
