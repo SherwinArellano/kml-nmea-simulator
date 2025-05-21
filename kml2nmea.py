@@ -229,6 +229,14 @@ def get_timestamp(mode: str) -> str:
     return time.strftime("%H%M%S", time.gmtime())
 
 
+def fmt_timestamp(epoch_s: int, mode: str) -> str:
+    """Return the appropriate UTC timestamp string for land or sea offset by specified seconds."""
+    tm = time.gmtime(epoch_s)
+    if mode.startswith("trk"):
+        return time.strftime("%Y%m%dT%H%M%SZ", tm)
+    return time.strftime("%H%M%S", tm)
+
+
 def build_trk_messages(
     name: str, source: str, ts: str, lat: float, lon: float, vel: float, azi: float
 ) -> List[str]:
@@ -355,6 +363,71 @@ async def run_track(
         if not cfg.repeat:
             break
 
+# ────────────────────────── File Generation ─────────────────────────────
+
+def generate_files(tracks, args):
+    """Generate files synchronously."""
+    now = int(time.time())
+
+    # --- GLOBAL MODE ---
+    if args.file_mode == "global":
+        if not args.outfile:
+            sys.exit("Error: --outfile required in global mode")
+        # ensure parent dir exists
+        od = os.path.dirname(args.outfile) or "."
+        os.makedirs(od, exist_ok=True)
+
+        # collect all (ts_sec, msg) across tracks
+        all_msgs: list[tuple[int,str]] = []
+        for name, cfg, pts, src in tracks:
+            start = now + cfg.delay_ms / 1000
+            step_s = cfg.interval_ms / 1000
+            step_m = cfg.vel_kmh/3.6 * cfg.interval_ms/1000
+
+            for idx, (lat, lon) in enumerate(walk_path(pts, step_m, cfg.loop)):
+                ts_sec = start + idx*step_s
+                print(f"{name}: {ts_sec} (step_s: {step_s})")
+                ts = fmt_timestamp(ts_sec, cfg.mode)
+                if cfg.mode.startswith("trk"):
+                    msgs = build_trk_messages(name, cfg.source or "unknown", ts, lat, lon, cfg.vel_kmh, 0.0)
+                else:
+                    msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
+                for m in msgs:
+                    all_msgs.append((ts_sec, m))
+
+        # sort and write once
+        all_msgs.sort(key=lambda x: x[0])
+        with open(args.outfile, "w", buffering=1) as fh:
+            for _, line in all_msgs:
+                fh.write(line)
+        
+        return
+
+    # --- SINGLE MODE ---
+    # ensure outdir exists
+    os.makedirs(args.outdir, exist_ok=True)
+
+    for name, cfg, pts, src_path in tracks:
+        kmlbase = os.path.splitext(os.path.basename(src_path))[0]
+        # make "snake-case" track name
+        safe = re.sub(r'[^A-Za-z0-9]+', "-", name).strip("-").lower()
+        ext = ".trk" if cfg.mode.startswith("trk") else ".nmea"
+        path = os.path.join(args.outdir, f"{kmlbase}.{safe}{ext}")
+
+        start = now + cfg.delay_ms / 1000
+        step_s = cfg.interval_ms / 1000
+        step_m = cfg.vel_kmh/3.6 * cfg.interval_ms/1000
+
+        with open(path, "w", buffering=1) as fh:
+            for idx, (lat, lon) in enumerate(walk_path(pts, step_m, cfg.loop)):
+                ts = fmt_timestamp(start + idx*step_s, cfg.mode)
+                if cfg.mode.startswith("trk"):
+                    msgs = build_trk_messages(name, cfg.source or "unknown", ts, lat, lon, cfg.vel_kmh, 0.0)
+                else:
+                    msgs = build_nmea_messages(ts, lat, lon, cfg.vel_kmh)
+                for m in msgs:
+                    fh.write(m)
+
 # ───────────────────────────── Main ────────────────────────────────
 
 def build_args():
@@ -405,7 +478,31 @@ def build_args():
         help="if set, emit all selected NMEA sentences in one UDP/MQTT packet per update",
     )
 
+    parser.add_argument(
+        "--file-mode",
+        choices=["stream","global","single"],
+        default="stream",
+        help="stream = live output (default); "
+             "global = write one merged file; "
+             "single = one file per track"
+    )
+
+    parser.add_argument(
+        "--outdir",
+        default=".",
+        metavar="DIR",
+        help="Directory for single-track files "
+             "(ignored in global mode)"
+    )
+
+    parser.add_argument(
+        "--outfile",
+        metavar="FILE",
+        help="Path to merged output file for global mode"
+    )
+
     return parser.parse_args()
+
 
 async def main():
     """Parse CLI, load tracks, set up UDP, MQTT, and launch streaming tasks."""
@@ -453,6 +550,11 @@ async def main():
 
     if not tracks:
         sys.exit("No tracks found in the provided KML files.")
+
+    # if file-mode, generate & exit
+    if args.file_mode in ("global","single"):
+        generate_files(tracks, args)
+        sys.exit(0)
 
     # — launch one asyncio task per track
     tasks = [asyncio.create_task(run_track(name, cfg, coords, sock, target)) for name, cfg, coords, _ in tracks]
