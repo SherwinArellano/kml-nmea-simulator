@@ -1,60 +1,100 @@
-# kml2nmea Simulator
+# Generalized Track Simulator
 
-A live NMEA (or custom `$TRK`) streamer driven by Google My Maps KML exports.
+A real‑time track simulator that streams simulated movement of one or more objects based on KML sources (e.g., Google My Maps). Depending on provided options, it produces asynchronous output over UDP, MQTT, or both, **or** generates timestamped output files, with the following customizable parameters:
 
-Instead of static playback, **kml2nmea** walks each route in your KML at real-world speed and broadcasts:
+- **Track modes**:
 
-- **NMEA `$GPRMC`** sentences (default, `mode=sea`) for marine or GPS-style feeds
-- **Custom `$TRK`** records (`mode=land`) for land-vehicle tracking
+  - **NMEA** (`mode=nmea` / `sea`): standard NMEA 0183 sentences (`$GPRMC`, `$GPGGA`, `$GPGLL`)
+  - **TRK-auto** (`mode=trk-auto` / `land`): custom `$TRK` messages for wheeled vehicles
+  - **TRK-container** (`mode=trk-container`): container tracking messages (one per minute by default)
 
-All configuration is specified _inline_ in each `<Placemark><name>` tag—no separate YAML/JSON required.
+- **Emit channels**: UDP (`--udp HOST:PORT`), MQTT (`--mqtt BROKER:PORT`), or both
 
----
+- **Update interval**: configure per-track with `interval=<ms>` (default 1000 ms); for `trk-container`, defaults to 60000 ms if not set
 
-## Features
+- **Inline config tokens**: `velocity`, `interval`, `delay`, `loop`, `repeat`, `mode`, `source`
 
-- **Inline config** via the KML `<name>` field
-- Adjustable **speed** (`velocity`), **frequency** (`freq`), **initial delay** (`delay`) in milliseconds
-- **Loop** and **repeat** controls for ping-pong or continuous playback
-- **Mode** switch to select output format (`sea` vs. `land`)
-- **Geodesic accuracy** using the WGS-84 ellipsoid (via `geographiclib`)
-- **Concurrency**: each track runs in its own `asyncio` task
+- **Source types**: define vehicle/container type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)
 
 ---
 
 ## Installation
 
 ```bash
-# Python 3.8+ recommended
-git clone https://github.com/youruser/kml2nmea.git
-cd kml2nmea
-pip install geographiclib
+# Python 3.8+ recommended
+git clone git@github.com:SherwinArellano/kml-nmea-simulator.git
+cd kml-nmea-simulator
+pip install -r requirements.txt
 ```
-
----
 
 ## Usage
 
 ```bash
-python3 kml2nmea.py <map.kml> <HOST:PORT>
+python kml2nmea.py [KML_PATHS...] \
+  [--udp HOST:PORT] [--mqtt BROKER:PORT] [--topic TOPIC] \
+  [--nmea-types TYPES] [--nmea-batch-types] \
+  [--filegen {single,multi}] [--outdir DIR] [--outfile FILE]
 ```
 
-**Example:**
+- **KML_PATHS**: one or more files or directories containing `.kml`
+- `--udp HOST:PORT`   → enable UDP streaming (e.g. `localhost:10110`)
+- `--mqtt BROKER:PORT` → enable MQTT streaming (e.g. `broker.local:1883`)
+- `--topic TOPIC`   → MQTT topic prefix (default: `kml2nmea`)
+- `--nmea-types TYPES` → comma-separated NMEA sentences for sea mode (default: `GPRMC,GPGGA,GPGLL`)
+- `--nmea-batch-types` → batch all selected NMEA sentences into one packet per update
+- `--filegen single|multi` → generate output files instead of live streaming
 
-```bash
-python3 kml2nmea.py mymap.kml 127.0.0.1:10110
-socat -u UDP-RECV:10110 STDOUT
-```
+  - `single`: one merged file (`--outfile`)
+  - `multi` : one file per track (`--outdir`)
+
+> Use the help option to learn more about the program's capabilities: `python kml2nmea.py -h`
+
+**Examples**
+
+- **UDP only** (default when `--udp` is set):
+
+  ```bash
+  python kml2nmea.py mymap.kml --udp 127.0.0.1:10110
+  socat -u UDP-RECV:10110 STDOUT
+  ```
+
+- **MQTT only**:
+
+  ```bash
+  python kml2nmea.py mymap.kml --mqtt localhost:1883 --topic my/tracks
+  mosquitto_sub -h localhost -t my/tracks/#
+  ```
+
+- **Both UDP and MQTT**:
+
+  ```bash
+  python kml2nmea.py mymap.kml --udp 127.0.0.1:10110 \
+      --mqtt broker.local:1883 --topic my/tracks
+  socat -u UDP-RECV:10110 STDOUT &
+  mosquitto_sub -h broker.local -t my/tracks/#
+  ```
+
+- **Generate files**:
+
+  ```bash
+  # Single merged file:
+  python kml2nmea.py mymap.kml --filegen single --outfile output.nmea
+
+  # One file per track:
+  python kml2nmea.py mymap.kml --filegen multi --outdir tracks/
+  ```
 
 ---
 
-## Configuring Each Route
+## Configuration (Inline in KML)
 
-Within your KML file, each `<Placemark>` with a `<LineString>` should define a `<name>` containing the human-readable ID (quoted or unquoted) followed by zero or more space-separated tokens.
+All settings are specified _inline_ in each KML `<Placemark><name>` tag—no external config needed. The `<name>` text begins with the track ID (quoted or unquoted) followed by space‑separated tokens:
 
 ```xml
 <Placemark>
-  <name><![CDATA["Truck 1" velocity=45 freq=500 loop delay=2000 repeat mode=land]]></name>
+  <name><![CDATA[
+    "Truck 1" velocity=30 interval=500 delay=2000 loop repeat mode=trk-auto source=truck
+  ]]></name>
   <LineString>
     <coordinates>
       12.4923,41.8902,0 12.4964,41.9028,0 ...
@@ -65,43 +105,58 @@ Within your KML file, each `<Placemark>` with a `<LineString>` should define a `
 
 ### Supported Tokens
 
-| Token                  | Description                                       | Default |
-| ---------------------- | ------------------------------------------------- | ------- |
-| `velocity=<km/h>`      | Travel speed in km/h                              | 5.0     |
-| `freq=<ms>`            | Update interval in milliseconds                   | 1000    |
-| `delay=<ms>`           | Initial delay before streaming starts (ms)        | 0       |
-| `loop`                 | Ping-pong playback (back and forth)               | off     |
-| `repeat`               | Continuous restart upon completion                | off     |
-| `mode=<sea&#124;land>` | Output format: `sea`→NMEA `$GPRMC`, `land`→`$TRK` | `sea`   |
+| Token                                      | Description                                                           | Default              | Notes                      |
+| ------------------------------------------ | --------------------------------------------------------------------- | -------------------- | -------------------------- |
+| `mode=<nmea \| trk-auto \| trk-container>` | Protocol: `nmea`→NMEA, `trk-auto`→TRK, `trk-container`→container mode | `nmea`               | Selects the message format |
+| `velocity=<km/h>`                          | Travel speed in km/h                                                  | `5.0`                |                            |
+| `interval=<ms>`                            | Update interval between messages in milliseconds                      | `1000`               |                            |
+| `delay=<ms>`                               | Initial delay before streaming in milliseconds                        | `0`                  |                            |
+| `loop`                                     | Ping-pong along track (back and forth)                                | off                  |                            |
+| `repeat`                                   | Restart upon completion                                               | off                  |                            |
+| `source=<type>`                            | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)        | _(required for TRK)_ |                            |
+|                                            |
 
 ---
 
 ## Output Formats
 
-### NMEA `$GPRMC` (mode=sea)
+### 1. NMEA (`mode=nmea`)
+
+Emits standard NMEA 0183 sentences. By default, `$GPRMC`, `$GPGGA`, and `$GPGLL` are emitted each update:
 
 ```
-$GPRMC,<hhmmss>.00,A,<lat>,<N/S>,<lon>,<E/W>,<sog>,0.0,,,
-*<CHECKSUM>PlacemarkName
-
-Example:
-$GPRMC,143212.00,A,4128.6081,N,01229.7840,E,12.34,0.0,,,*5ARiverRoute
+$GPRMC,143212.00,A,4128.6081,N,01229.7840,E,12.34,0.0,,,*5A
 ```
 
-- **Latitude/Longitude** in degrees+minutes (DDMM.MMMM)
-- **SOG** in knots (km/h → kn)
-- **Timestamp** in UTC `hhmmss`
+- **UDP**: sent to `<host>:<port>`
+- **MQTT**: topic `<topic>/nmea/<track_id>`
 
-### Custom `$TRK` (mode=land)
+### 2. TRK-auto (`mode=trk-auto`)
+
+Custom `$TRK` messages for wheeled vehicles:
 
 ```
-$TRK,<PlacemarkName>,<YYYYMMDDThhmmssZ>,<lat>,<lon>,<km/h>,<heading>*<CHECKSUM>
-
-Example:
-$TRK,Truck 1,20250516T144643Z,41.902800,12.496400,45.0,270*3F
+$TRK,<ID>,<YYYYMMDDThhmmssZ>,<lat>,<lon>,<km/h>,<heading>*<checksum>
 ```
 
-- **Coordinates** in decimal degrees
-- **Speed** in km/h
-- **Heading** as integer degrees (0–359)
-- **Timestamp** in ISO-style UTC
+Published over UDP and/or MQTT topic `<topic>/trk-auto/<ID>`.
+
+### 3. TRK-container (`mode=trk-container`)
+
+Per-minute container tracking messages (one update every minute by default). Same `$TRK` format, under `<topic>/trk-container/<ID>`.
+
+---
+
+## Workflow & Integration
+
+1. **Register trip** in your system (e.g., via REST API).
+2. **Run simulator**, pointing to KML source: it loads tracks, parses inline configs, and⬇
+3. **Stream** live updates or **generate files** based on selected options.
+
+---
+
+## Dependencies
+
+- `geographiclib` – ellipsoidal geodesic calculations
+- `paho-mqtt` – MQTT client
+- `asyncio` – built-in Python async framework
