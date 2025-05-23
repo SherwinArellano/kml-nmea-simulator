@@ -5,10 +5,9 @@ from abc import ABC, abstractmethod
 
 
 class Service(ABC):
-    def __init__(self, cfg: AppConfig, tm: TrackManager, transports: list[Transport]):
-        self.cfg = cfg
-        self.tm = tm
-        self.transports = transports
+    cfg: AppConfig
+    tm: TrackManager
+    transports: list[Transport]
 
     @abstractmethod
     async def start(self): ...

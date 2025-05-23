@@ -8,7 +8,6 @@ from core.transports import (
     MQTTTransport,
 )
 from .base import Service
-from typing import Type
 import asyncio
 
 
@@ -33,8 +32,11 @@ class ServiceManager:
             print("Added transport: MQTTTransport")
             self.transports.append(MQTTTransport(cfg.mqtt_broker, cfg.mqtt_topic))
 
-    def register(self, service_cls: Type[Service]):
-        self.services.append(service_cls(self.cfg, self.tm, self.transports))
+    def register(self, service: Service):
+        service.cfg = self.cfg
+        service.tm = self.tm
+        service.transports = self.transports
+        self.services.append(service)
 
     async def start_all(self):
         tasks = []

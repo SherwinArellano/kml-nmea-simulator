@@ -130,9 +130,9 @@
       </Placemark>
     </Folder>
     <Folder>
-      <name><![CDATA["Truck 3" velocity=30 interval=500 loop]]></name>
+      <name><![CDATA[AA003 velocity=30 interval=500 loop]]></name>
       <Placemark>
-        <name><![CDATA["Truck 3" velocity=30 interval=500 loop]]></name>
+        <name><![CDATA[AA003 velocity=30 interval=500 loop]]></name>
         <styleUrl>#line-1267FF-5000-nodesc</styleUrl>
         <LineString>
           <tessellate>1</tessellate>

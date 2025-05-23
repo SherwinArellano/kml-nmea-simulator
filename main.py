@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from core.parser import parse_tracks
 from core.models import TrackInfo
-from core.services import ServiceManager, StreamingService
+from core.services import ServiceManager, StreamingService, RESTService
 from core.track_manager import TrackManager
 from core.config import parse_args, build_app_cfg
 import sys
@@ -19,6 +19,7 @@ async def main():
     tracks: list[TrackInfo] = []
     for path in cfg.kml_paths:
         for name, track_cfg, coords in parse_tracks(path):
+            print(f"Loaded track: {name} (from {path})")
             tracks.append(TrackInfo(name, track_cfg, coords, path))
 
     if not tracks:
@@ -29,7 +30,7 @@ async def main():
     sm = ServiceManager(cfg, tm)
 
     # Register services
-    sm.register(StreamingService)
+    sm.register(RESTService())
 
     await sm.start_all()
 
