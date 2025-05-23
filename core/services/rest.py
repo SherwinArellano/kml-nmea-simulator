@@ -36,11 +36,6 @@ class RESTService(Service):
 
         await self._server.serve()
 
-        #    If you instead want start() to return immediately and run in the
-        #    background, you could do:
-        #    asyncio.create_task(self._server.serve())
-        #    return
-
     @override
     async def stop(self):
         if self._server:
