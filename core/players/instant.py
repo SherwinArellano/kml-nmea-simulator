@@ -1,5 +1,6 @@
 from typing import override
 from core.messages import BuilderContext
+from core.transports import TransportContext, SingleFileTransport
 from core.walker import walk_path
 from .base import TrackPlayer
 import time
@@ -7,7 +8,7 @@ import time
 
 class InstantPlayer(TrackPlayer):
     def generate_messages(self):
-        """Yields (timestamp, raw_payload_bytes, track_name) in track-order."""
+        """Yields (timestamp, raw_payload_bytes) in track-order."""
         ti = self.ti
         cfg = self.ti.cfg
 
@@ -30,16 +31,17 @@ class InstantPlayer(TrackPlayer):
             msgs = self.builder.build()
 
             for m in msgs:
-                yield epoch_s, m.encode(), ti.name
+                yield epoch_s, m.encode()
 
             prev_point = point
 
     @override
     async def play(self):
-        # generate messages of all tracks sorted by timestamp
-        msgs = list(self.generate_messages())
-        msgs.sort(key=lambda x: x[0])
-
-        for _ts, payload, _topic in msgs:
+        for ts, payload in self.generate_messages():
             for t in self.transports:
-                t.send(self.ti, payload)
+                t.send(TransportContext(self.ti, payload, ts))
+
+        # hacky solution for now to flush data from single file transport
+        for t in self.transports:
+            if isinstance(t, SingleFileTransport):
+                t.flush()

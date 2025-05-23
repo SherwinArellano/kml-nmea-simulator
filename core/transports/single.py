@@ -8,10 +8,17 @@ class SingleFileTransport(Transport):
         od = os.path.dirname(outfile) or "."
         os.makedirs(od, exist_ok=True)
         self.outfile = open(outfile, "w", buffering=1)
+        self.buffer: list[tuple[float, bytes]] = []
 
     @override
-    def send(self, ti, payload):
-        self.outfile.write(payload.decode())
+    def send(self, ctx):
+        ts = ctx.ts if ctx.ts else 0.0
+        self.buffer.append((ts, ctx.payload))
+
+    def flush(self):
+        self.buffer.sort(key=lambda x: x[0])
+        for _, payload in self.buffer:
+            self.outfile.write(payload.decode())
 
     @override
     def close(self):

@@ -11,7 +11,8 @@ class MultiFilesTransport(Transport):
         os.makedirs(outdir, exist_ok=True)
 
     @override
-    def send(self, ti, payload):
+    def send(self, ctx):
+        ti = ctx.ti
         name = ti.name
         cfg = ti.cfg
 
@@ -23,7 +24,7 @@ class MultiFilesTransport(Transport):
             path = os.path.join(self.outdir, f"{kmlbase}.{safe}{ext}")
             self.outfiles[name] = open(path, "w")
 
-        self.outfiles[ti.name].write(payload.decode())
+        self.outfiles[ti.name].write(ctx.payload.decode())
 
     @override
     def close(self):

@@ -10,8 +10,8 @@ class MQTTTransport(Transport):
         self.topic = topic
 
     @override
-    def send(self, ti, payload):
-        self.client.publish(f"{self.topic}/{ti.name}", payload)
+    def send(self, ctx):
+        self.client.publish(f"{self.topic}/{ctx.ti.name}", ctx.payload)
 
     @override
     def close(self):

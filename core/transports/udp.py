@@ -9,8 +9,8 @@ class UDPTransport(Transport):
         self.target = (host, port)
 
     @override
-    def send(self, ti, payload):
-        self.sock.sendto(payload, self.target)
+    def send(self, ctx):
+        self.sock.sendto(ctx.payload, self.target)
 
     @override
     def close(self):

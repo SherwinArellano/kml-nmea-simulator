@@ -1,6 +1,7 @@
 import asyncio
 from typing import override
 from core.messages import BuilderContext
+from core.transports import TransportContext
 from core.walker import walk_path
 from .base import TrackPlayer
 
@@ -27,7 +28,7 @@ class SimulatedPlayer(TrackPlayer):
                 msgs = self.builder.build()
                 for t in self.transports:
                     for m in msgs:
-                        t.send(self.ti, m.encode())
+                        t.send(TransportContext(self.ti, m.encode()))
 
                 await asyncio.sleep(cfg.interval_ms / 1000)
 
