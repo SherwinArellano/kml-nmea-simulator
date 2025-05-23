@@ -11,3 +11,6 @@ class Service(ABC):
 
     @abstractmethod
     async def start(self): ...
+
+    @abstractmethod
+    async def stop(self): ...

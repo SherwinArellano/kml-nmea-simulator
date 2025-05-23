@@ -6,6 +6,7 @@ from core.track_manager import TrackManager
 from core.config import parse_args, build_app_cfg
 import sys
 import asyncio
+import signal
 
 
 async def main():
@@ -32,6 +33,8 @@ async def main():
     # Register services
     sm.register(RESTService())
 
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(sm.stop_all()))
     await sm.start_all()
 
 

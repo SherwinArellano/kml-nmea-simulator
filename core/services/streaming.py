@@ -6,9 +6,11 @@ import asyncio
 
 
 class StreamingService(Service):
+    def __init__(self):
+        self._tasks: list[asyncio.Task] = []
+
     @override
     async def start(self):
-        tasks = []
         for ti in self.tm.values():
             print(f"▶ {ti.name}: {ti.cfg}")
             builder = get_builder(ti.cfg.mode)
@@ -18,5 +20,16 @@ class StreamingService(Service):
             else:
                 player = SimulatedPlayer(self.cfg, ti, builder, self.transports)
 
-            tasks.append(asyncio.create_task(player.play()))
-        await asyncio.gather(*tasks)
+            task = asyncio.create_task(player.play())
+            self._tasks.append(task)
+
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+
+    @override
+    async def stop(self):
+        for task in self._tasks:
+            task.cancel()
+
+        # ensure all cancellations are processed
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+        self._tasks.clear()

@@ -44,3 +44,7 @@ class ServiceManager:
             print(f"Started service: {service.__class__.__name__}")
             tasks.append(asyncio.create_task(service.start()))
         await asyncio.gather(*tasks)
+
+    async def stop_all(self):
+        for svc in self.services:
+            await svc.stop()
