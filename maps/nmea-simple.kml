@@ -74,9 +74,9 @@
       </Pair>
     </StyleMap>
     <Folder>
-      <name><![CDATA["Sample Truck" velocity=10 interval=500]]></name>
+      <name><![CDATA["Sample NMEA Truck" velocity=10 interval=500]]></name>
       <Placemark>
-        <name><![CDATA["Sample Truck" velocity=10 interval=500]]></name>
+        <name><![CDATA["Sample NMEA Truck" velocity=10 interval=500]]></name>
         <styleUrl>#line-1267FF-5000-nodesc</styleUrl>
         <LineString>
           <tessellate>1</tessellate>
