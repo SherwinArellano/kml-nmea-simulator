@@ -1,4 +1,4 @@
-from .base import Transport
+from .base import Transport, TimestampParam
 from typing import override
 import os
 
@@ -12,7 +12,7 @@ class SingleFileTransport(Transport):
 
     @override
     def send(self, ctx):
-        ts = ctx.ts if ctx.ts else 0.0
+        ts = ctx.get(TimestampParam).timestamp
         self.buffer.append((ts, ctx.payload))
 
     def flush(self):

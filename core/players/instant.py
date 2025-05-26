@@ -1,6 +1,6 @@
 from typing import override
-from core.messages import BuilderContext
-from core.transports import TransportContext, SingleFileTransport
+from core.messages import MessageContext, NMEAParams, TRKParams
+from core.transports import TransportContext, SingleFileTransport, TimestampParam
 from core.walker import walk_path
 from .base import TrackPlayer
 import time
@@ -19,27 +19,31 @@ class InstantPlayer(TrackPlayer):
         prev_point = None
         for idx, point in enumerate(walk_path(ti.coords, step_m, cfg.loop)):
             epoch_s = start + idx * step_s
-            ctx = BuilderContext(
-                self.ti,
-                point,
-                epoch_s,
-                nmea_types=self.cfg.nmea_types,
-                prev_point=prev_point,
-            )
-            self.builder.set_context(ctx)
+            ctx = MessageContext(self.ti, point, epoch_s)
 
-            msgs = self.builder.build()
+            if ti.cfg.mode == "nmea":
+                ctx.set(NMEAParams(self.cfg.nmea_types))
+            else:  # trk, trk-container
+                ctx.set(TRKParams(prev_point))
+
+            msgs = self.builder.build(ctx)
 
             for m in msgs:
                 yield epoch_s, m.encode()
 
             prev_point = point
 
+    # TODO: Perhaps create a callback function which passes ctx and other data and set the TimestampParam there?
     @override
     async def play(self):
         for ts, payload in self.generate_messages():
             for t in self.transports:
-                t.send(TransportContext(self.ti, payload, ts))
+                ctx = TransportContext(self.ti, payload)
+
+                if self.cfg.filegen_mode == "single":
+                    ctx.set(TimestampParam(ts))
+
+                t.send(ctx)
 
         # hacky solution for now to flush data from single file transport
         for t in self.transports:

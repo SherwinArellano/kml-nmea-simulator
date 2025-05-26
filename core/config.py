@@ -6,7 +6,7 @@ import os
 import glob
 
 FilegenMode = Literal["single", "multi"]
-NmeaType = Literal["GPRMC", "GPGGA", "GPGLL"]
+NmeaType = Literal["GPRMC", "GPGGA", "GPGLL"] | str
 
 
 class Args(argparse.Namespace):
@@ -25,7 +25,7 @@ class Args(argparse.Namespace):
 class AppConfig:
     kml_paths: list[str]
     nmea_batch: bool
-    nmea_types: list[NmeaType | str]
+    nmea_types: list[NmeaType]
     udp_target: tuple[str, int] | None
     mqtt_broker: tuple[str, int] | None
     mqtt_topic: str

@@ -1,15 +1,18 @@
 from abc import ABC, abstractmethod
 from core.models import TrackInfo
+from core.utils import CallContext, CallParams
 from dataclasses import dataclass
 
 
+class TimestampParam(CallParams):
+    def __init__(self, timestamp: float):
+        self.timestamp = timestamp
+
+
 @dataclass
-class TransportContext:
+class TransportContext(CallContext):
     ti: TrackInfo
     payload: bytes
-
-    # Used by single transport:
-    ts: float | None = None
 
 
 class Transport(ABC):
