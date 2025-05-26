@@ -160,3 +160,40 @@ Per-minute container tracking messages (one update every minute by default). Sam
 - `geographiclib` – ellipsoidal geodesic calculations
 - `paho-mqtt` – MQTT client
 - `asyncio` – built-in Python async framework
+- `pyee` – event emitter (to be used in the future)
+
+---
+
+## Improvements
+
+### [ ] Event Emitter
+
+Use the event emitter (pyee) to prevent _"prop-drilling"_ `AppConfig` and to decouple classes from other classes. For example, `TrackPlayer` is getting passed `AppConfig` just because it needs the `AppConfig.nmea_types` global configuration.
+
+There are of course other solutions which mitigate this:
+
+1. To create a root parent class which all classes will inherit and has the global configuration. **Problem:** Ties everything to a grand parent class which creates a very coupled system.
+2. Use a Singleton. **Problem:** Methods become _unpure_ in the sense that they depend on the outside code.
+
+By using an event emitter, the problems above are solved quite nicely:
+
+```py
+@evented # notice this helper from pyee
+class TrackPlayer(ABC):
+    def __init__(): ...
+
+    @abstractmethod
+    async def play(self): ...
+
+    # we can also use decorators for these on_events
+    # e.g. @trackPlayer.on_presend()
+    def on_presend(self, handler): ...
+
+    def on_finished(self, handler): ...
+```
+
+### [ ] Remove AppConfig
+
+As it stands, app config is a god object which I want to avoid after thinking about it. In the sense that it creates this sense of obligation that I have to depend on it too much and pass it anywhere it's needed. Also, there's the overhead of adding a new argument for the cli also means maintaining `AppConfig`. And so I decided in the future to remove it.
+
+As for what will happen to classes that do depend on it, look at the `core.utils.call_context` module for inspiration, also check event emitter, and always think: Single Responsibility Principle, i.e., _does this class really need to be coupled with this other class?_ Think in components, think in composition.

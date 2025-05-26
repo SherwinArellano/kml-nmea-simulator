@@ -33,7 +33,6 @@ class InstantPlayer(TrackPlayer):
 
             prev_point = point
 
-    # TODO: Perhaps create a callback function which passes ctx and other data and set the TimestampParam there?
     @override
     async def play(self):
         for ts, payload in self.generate_messages():
