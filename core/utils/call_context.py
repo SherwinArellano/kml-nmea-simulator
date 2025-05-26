@@ -19,8 +19,3 @@ class CallContext:
         if not isinstance(val, arg_type):
             raise TypeError(f"Expected {arg_type}, got {type(val)}")
         return val
-
-
-def parse_host_port(hostname: str) -> tuple[str, int]:
-    host, port = hostname.split(":")
-    return (host, int(port))
