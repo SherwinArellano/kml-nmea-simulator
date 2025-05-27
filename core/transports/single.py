@@ -4,6 +4,8 @@ import os
 
 
 class SingleFileTransport(Transport):
+    EXPECTS = [TimestampParam]
+
     def __init__(self, outfile: str):
         od = os.path.dirname(outfile) or "."
         os.makedirs(od, exist_ok=True)
@@ -12,6 +14,7 @@ class SingleFileTransport(Transport):
 
     @override
     def send(self, ctx):
+        ctx.validate(self.EXPECTS)
         ts = ctx.get(TimestampParam).timestamp
         self.buffer.append((ts, ctx.payload))
 

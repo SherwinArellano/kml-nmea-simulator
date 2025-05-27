@@ -11,6 +11,8 @@ class TRKParams(CallParams):
 
 
 class TRKBuilder(MessageBuilder):
+    EXPECTS = [TRKParams]
+
     def _calc_heading(
         self, point: tuple[float, float], prev_point: tuple[float, float]
     ) -> float:
@@ -22,6 +24,7 @@ class TRKBuilder(MessageBuilder):
         """
         Build the list of $TRK messages (always exactly one) for land mode.
         """
+        ctx.validate(self.EXPECTS)
 
         ti = ctx.ti
         cfg = ti.cfg
