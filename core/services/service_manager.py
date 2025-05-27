@@ -12,13 +12,13 @@ import asyncio
 
 
 class ServiceManager:
-    def __init__(self, cfg: AppConfig, tm: TrackManager):
-        self.cfg = cfg
+    def __init__(self, tm: TrackManager):
         self.tm = tm
         self.services: list[Service] = []
         self.transports: list[Transport] = []
 
         # build transports
+        cfg = AppConfig.get()
         if cfg.filegen_mode == "single":
             print("Added transport: SingleFileTransport")
             self.transports.append(SingleFileTransport(cfg.outfile))
@@ -33,7 +33,6 @@ class ServiceManager:
             self.transports.append(MQTTTransport(cfg.mqtt_broker, cfg.mqtt_topic))
 
     def register(self, service: Service):
-        service.cfg = self.cfg
         service.tm = self.tm
         service.transports = self.transports
         self.services.append(service)

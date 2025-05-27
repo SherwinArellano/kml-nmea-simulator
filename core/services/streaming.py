@@ -2,6 +2,7 @@ from .base import Service
 from core.players import SimulatedPlayer, InstantPlayer
 from core.messages import get_builder
 from typing import override
+from core.config import AppConfig
 import asyncio
 
 
@@ -15,10 +16,11 @@ class StreamingService(Service):
             print(f"▶ {ti.name}: {ti.cfg}")
             builder = get_builder(ti.cfg.mode)
 
-            if self.cfg.filegen_mode:
-                player = InstantPlayer(self.cfg, ti, builder, self.transports)
+            cfg = AppConfig.get()
+            if cfg.filegen_mode:
+                player = InstantPlayer(ti, builder, self.transports)
             else:
-                player = SimulatedPlayer(self.cfg, ti, builder, self.transports)
+                player = SimulatedPlayer(ti, builder, self.transports)
 
             task = asyncio.create_task(player.play())
             self._tasks.append(task)

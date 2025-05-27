@@ -1,6 +1,6 @@
 import asyncio
 from typing import override
-from core.messages import MessageContext, NMEAParams, TRKParams
+from core.messages import MessageContext, TRKParams
 from core.transports import TransportContext
 from core.walker import walk_path
 from .base import TrackPlayer
@@ -19,9 +19,7 @@ class SimulatedPlayer(TrackPlayer):
             for point in walk_path(self.ti.coords, step, cfg.loop):
                 ctx = MessageContext(self.ti, point)
 
-                if cfg.mode == "nmea":
-                    ctx.set(NMEAParams(self.cfg.nmea_types))
-                else:  # trk, trk-container
+                if cfg.mode != "nmea":  # trk, trk-container
                     ctx.set(TRKParams(prev_point))
 
                 msgs = self.builder.build(ctx)

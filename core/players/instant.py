@@ -1,5 +1,6 @@
 from typing import override
-from core.messages import MessageContext, NMEAParams, TRKParams
+from core.config import AppConfig
+from core.messages import MessageContext, TRKParams
 from core.transports import TransportContext, SingleFileTransport, TimestampParam
 from core.walker import walk_path
 from .base import TrackPlayer
@@ -21,9 +22,7 @@ class InstantPlayer(TrackPlayer):
             epoch_s = start + idx * step_s
             ctx = MessageContext(self.ti, point, epoch_s)
 
-            if ti.cfg.mode == "nmea":
-                ctx.set(NMEAParams(self.cfg.nmea_types))
-            else:  # trk, trk-container
+            if ti.cfg.mode != "nmea":  # trk, trk-container
                 ctx.set(TRKParams(prev_point))
 
             msgs = self.builder.build(ctx)
@@ -35,11 +34,13 @@ class InstantPlayer(TrackPlayer):
 
     @override
     async def play(self):
+        app_cfg = AppConfig.get()
+
         for ts, payload in self.generate_messages():
             for t in self.transports:
                 ctx = TransportContext(self.ti, payload)
 
-                if self.cfg.filegen_mode == "single":
+                if app_cfg.filegen_mode == "single":
                     ctx.set(TimestampParam(ts))
 
                 t.send(ctx)

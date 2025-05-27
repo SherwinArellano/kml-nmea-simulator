@@ -1,14 +1,8 @@
 from typing import override
+from core.config import AppConfig
 from core.messages import MessageBuilder
 from core.geodesy import checksum, deg2dm
-from core.config import NmeaType
-from core.utils import CallParams
 import time
-
-
-class NMEAParams(CallParams):
-    def __init__(self, nmea_types: list[NmeaType]):
-        self.nmea_types = nmea_types
 
 
 class NMEABuilder(MessageBuilder):
@@ -22,7 +16,9 @@ class NMEABuilder(MessageBuilder):
         cfg = ti.cfg
         point = ctx.point
         ts = time.strftime("%H%M%S", time.gmtime(ctx.epoch_s))
-        nmea_types = ctx.get(NMEAParams).nmea_types
+
+        app_cfg = AppConfig.get()
+        nmea_types = app_cfg.nmea_types
 
         lat_dm, ns = deg2dm(point[0], is_lat=True)
         lon_dm, ew = deg2dm(point[1], is_lat=False)

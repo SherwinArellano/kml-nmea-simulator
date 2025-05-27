@@ -3,7 +3,7 @@ from core.parser import parse_tracks
 from core.models import TrackInfo
 from core.services import ServiceManager, StreamingService, RESTService
 from core.track_manager import TrackManager
-from core.config import parse_args, build_app_cfg
+from core.config import parse_args, build_app_cfg, AppConfig
 import sys
 import asyncio
 import signal
@@ -12,6 +12,7 @@ import signal
 async def main():
     args = parse_args()
     cfg = build_app_cfg(args)
+    AppConfig.init(cfg)
 
     if not cfg.kml_paths:
         sys.exit("No KML files found in specified paths.")
@@ -28,10 +29,10 @@ async def main():
 
     # Create managers
     tm = TrackManager(tracks)
-    sm = ServiceManager(cfg, tm)
+    sm = ServiceManager(tm)
 
     # Register services
-    sm.register(RESTService())
+    sm.register(StreamingService())
 
     loop = asyncio.get_running_loop()
     loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(sm.stop_all()))

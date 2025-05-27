@@ -25,7 +25,7 @@ class RESTService(Service):
 
             ti = self.tm.get(track_name)
             builder = get_builder(ti.cfg.mode)
-            player = SimulatedPlayer(self.cfg, ti, builder, self.transports)
+            player = SimulatedPlayer(ti, builder, self.transports)
             asyncio.create_task(player.play())
             return {"status": "started", "track": track_name}
 

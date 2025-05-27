@@ -1,5 +1,5 @@
 from core.utils import parse_host_port
-from typing import Literal, cast
+from typing import Literal, cast, ClassVar, Optional
 from dataclasses import dataclass
 import argparse
 import os
@@ -21,7 +21,7 @@ class Args(argparse.Namespace):
     outfile: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class AppConfig:
     kml_paths: list[str]
     nmea_batch: bool
@@ -32,6 +32,21 @@ class AppConfig:
     filegen_mode: FilegenMode | None
     outfile: str
     outdir: str
+
+    # Singleton backing field
+    _instance: ClassVar[Optional["AppConfig"]] = None
+
+    @classmethod
+    def init(cls, cfg: "AppConfig") -> None:
+        if cls._instance is not None:
+            raise RuntimeError("AppConfig has already been initialized.")
+        cls._instance = cfg
+
+    @classmethod
+    def get(cls) -> "AppConfig":
+        if cls._instance is None:
+            raise RuntimeError("AppConfig is not initialized.")
+        return cls._instance
 
 
 def parse_args() -> Args:
