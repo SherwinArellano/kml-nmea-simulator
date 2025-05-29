@@ -16,75 +16,72 @@ A real‑time track simulator that streams simulated movement of one or more obj
 
 - **Source types**: define vehicle/container type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)
 
----
+## Table of Contents
+
+- [Generalized Track Simulator](#generalized-track-simulator)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Listen](#listen)
+  - [Configuration (Inline in KML)](#configuration-inline-in-kml)
+    - [Supported Tokens](#supported-tokens)
+  - [Output Formats](#output-formats)
+    - [1. NMEA (`mode=nmea`)](#1-nmea-modenmea)
+    - [2. TRK-auto (`mode=trk-auto`)](#2-trk-auto-modetrk-auto)
+    - [3. TRK-container (`mode=trk-container`)](#3-trk-container-modetrk-container)
+  - [Workflow \& Integration](#workflow--integration)
+  - [Improvements](#improvements)
+    - [\[ \] Event Emitter (Perhaps not needed anymore)](#--event-emitter-perhaps-not-needed-anymore)
+    - [\[x\] ~~Remove AppConfig~~](#x-remove-appconfig)
+
 
 ## Installation
 
 ```bash
 # Python 3.8+ recommended
+
+# Clone the repo and change directory there
 git clone git@github.com:SherwinArellano/kml-nmea-simulator.git
 cd kml-nmea-simulator
+
+# Create a virtual environment
+python -m venv venv # depending on what you're using, `python` could be `py` or `python3`
+
+# Activate virtual environment
+source venv/bin/activate # LINUX
+.\venv\Scripts\Activate.ps1 # WINDOWS
+
+# Install packages
 pip install -r requirements.txt
 ```
 
 ## Usage
 
 ```bash
-python kml2nmea.py [KML_PATHS...] \
-  [--udp HOST:PORT] [--mqtt BROKER:PORT] [--topic TOPIC] \
-  [--nmea-types TYPES] [--nmea-batch-types] \
-  [--filegen {single,multi}] [--outdir DIR] [--outfile FILE]
+python main.py
 ```
 
-- **KML_PATHS**: one or more files or directories containing `.kml`
-- `--udp HOST:PORT`   → enable UDP streaming (e.g. `localhost:10110`)
-- `--mqtt BROKER:PORT` → enable MQTT streaming (e.g. `broker.local:1883`)
-- `--topic TOPIC`   → MQTT topic prefix (default: `kml2nmea`)
-- `--nmea-types TYPES` → comma-separated NMEA sentences for sea mode (default: `GPRMC,GPGGA,GPGLL`)
-- `--nmea-batch-types` → batch all selected NMEA sentences into one packet per update
-- `--filegen single|multi` → generate output files instead of live streaming
+Check the help section on how to use the program by running:
 
-  - `single`: one merged file (`--outfile`)
-  - `multi` : one file per track (`--outdir`)
+```bash
+python main.py -h
+```
 
-> Use the help option to learn more about the program's capabilities: `python kml2nmea.py -h`
+Do note that the program checks the `config.yaml` for running configurations.
 
-**Examples**
+## Listen
 
-- **UDP only** (default when `--udp` is set):
+To listen in UDP, you can do so with `socat` (you may have to install):
 
-  ```bash
-  python kml2nmea.py mymap.kml --udp 127.0.0.1:10110
-  socat -u UDP-RECV:10110 STDOUT
-  ```
+```bash
+socat -u UDP-RECV:10110 STDOUT
+```
 
-- **MQTT only**:
+To listen in MQTT:
 
-  ```bash
-  python kml2nmea.py mymap.kml --mqtt localhost:1883 --topic my/tracks
-  mosquitto_sub -h localhost -t my/tracks/#
-  ```
-
-- **Both UDP and MQTT**:
-
-  ```bash
-  python kml2nmea.py mymap.kml --udp 127.0.0.1:10110 \
-      --mqtt broker.local:1883 --topic my/tracks
-  socat -u UDP-RECV:10110 STDOUT &
-  mosquitto_sub -h broker.local -t my/tracks/#
-  ```
-
-- **Generate files**:
-
-  ```bash
-  # Single merged file:
-  python kml2nmea.py mymap.kml --filegen single --outfile output.nmea
-
-  # One file per track:
-  python kml2nmea.py mymap.kml --filegen multi --outdir tracks/
-  ```
-
----
+```bash
+mosquitto_sub -h localhost -t my/topic/#
+```
 
 ## Configuration (Inline in KML)
 
@@ -116,8 +113,6 @@ All settings are specified _inline_ in each KML `<Placemark><name>` tag—no ext
 | `source=<type>`                            | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)        | _(required for TRK)_ |                            |
 |                                            |
 
----
-
 ## Output Formats
 
 ### 1. NMEA (`mode=nmea`)
@@ -145,24 +140,11 @@ Published over UDP and/or MQTT topic `<topic>/trk-auto/<ID>`.
 
 Per-minute container tracking messages (one update every minute by default). Same `$TRK` format, under `<topic>/trk-container/<ID>`.
 
----
-
 ## Workflow & Integration
 
 1. **Register trip** in your system (e.g., via REST API).
 2. **Run simulator**, pointing to KML source: it loads tracks, parses inline configs, and⬇
 3. **Stream** live updates or **generate files** based on selected options.
-
----
-
-## Dependencies
-
-- `geographiclib` – ellipsoidal geodesic calculations
-- `paho-mqtt` – MQTT client
-- `asyncio` – built-in Python async framework
-- `pyee` – event emitter (to be used in the future)
-
----
 
 ## Improvements
 
