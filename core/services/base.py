@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 class Service(ABC):
     tm: TrackManager
     transports: list[Transport]
+    instant_transports: list[Transport]
 
     @abstractmethod
     async def start(self): ...

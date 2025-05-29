@@ -16,6 +16,7 @@ class ServiceManager:
         self.tm = tm
         self.services: list[Service] = []
         self.transports: list[Transport] = []
+        self.instant_transports: list[Transport] = []
 
         # build transports
         cfg = AppConfig.get()
@@ -23,15 +24,24 @@ class ServiceManager:
             print("Added transport: SingleFileTransport")
             if not cfg.filegen.outfile:
                 raise KeyError("Missing required 'outfile' option in filegen mode")
-            self.transports.append(SingleFileTransport(cfg.filegen.outfile))
+            if cfg.filegen.streaming:
+                self.transports.append(SingleFileTransport(cfg.filegen.outfile))
+            else:
+                self.instant_transports.append(SingleFileTransport(cfg.filegen.outfile))
+
         if cfg.filegen and cfg.filegen.enabled and cfg.filegen.mode == "multi":
             print("Added transport: MultiFilesTransport")
             if not cfg.filegen.outdir:
                 raise KeyError("Missing required 'outdir' option in filegen mode")
-            self.transports.append(MultiFilesTransport(cfg.filegen.outdir))
+            if cfg.filegen.streaming:
+                self.transports.append(MultiFilesTransport(cfg.filegen.outdir))
+            else:
+                self.instant_transports.append(MultiFilesTransport(cfg.filegen.outdir))
+
         if cfg.udp and cfg.udp.enabled:
             print("Added transport: UDPTransport")
             self.transports.append(UDPTransport(cfg.udp.host, cfg.udp.port))
+
         if cfg.mqtt and cfg.mqtt.enabled:
             print("Added transport: MQTTTransport")
             self.transports.append(
@@ -41,6 +51,7 @@ class ServiceManager:
     def register(self, service: Service):
         service.tm = self.tm
         service.transports = self.transports
+        service.instant_transports = self.instant_transports
         self.services.append(service)
 
     async def start_all(self):

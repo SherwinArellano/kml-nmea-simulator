@@ -17,13 +17,14 @@ class StreamingService(Service):
             builder = get_builder(ti.cfg.mode)
 
             cfg = AppConfig.get()
-            if cfg.filegen and not cfg.filegen.streaming:
-                player = InstantPlayer(ti, builder, self.transports)
-            else:
-                player = SimulatedPlayer(ti, builder, self.transports)
 
-            task = asyncio.create_task(player.play())
-            self._tasks.append(task)
+            if self.transports:
+                player = SimulatedPlayer(ti, builder, self.transports)
+                self._tasks.append(asyncio.create_task(player.play()))
+
+            if self.instant_transports:
+                player = InstantPlayer(ti, builder, self.instant_transports)
+                self._tasks.append(asyncio.create_task(player.play()))
 
         await asyncio.gather(*self._tasks, return_exceptions=True)
 
