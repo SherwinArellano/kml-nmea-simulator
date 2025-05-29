@@ -10,8 +10,8 @@ import glob
 @dataclass(frozen=True)
 class DefaultTrackConfig:
     velocity: float
-    interval: float
-    delay: float
+    interval: int
+    delay: int
     loop_mode: bool
     repeat_mode: bool
     mode: TrackMode

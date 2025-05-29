@@ -6,13 +6,13 @@ TrackMode = Literal["nmea", "trk-auto", "trk-container"]
 
 @dataclass
 class TrackCfg:
-    vel_kmh: float = 5.0
-    interval_ms: int = 1000
-    delay_ms: int = 0
-    loop: bool = False
-    repeat: bool = False
-    mode: TrackMode | str = "nmea"
-    source: str = ""  # boat, ship, truck, etc.
+    vel_kmh: float
+    interval_ms: int
+    delay_ms: int
+    loop: bool
+    repeat: bool
+    mode: TrackMode | str
+    source: str  # boat, ship, truck, etc.
 
 
 @dataclass

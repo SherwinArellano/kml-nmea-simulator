@@ -1,18 +1,29 @@
 from core.models import TrackCfg
 import re, xml.etree.ElementTree as ET
+from core.config import AppConfig
 
 _NS = {"k": "http://www.opengis.net/kml/2.2"}
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
 
 
-def parse_name(text: str) -> tuple[str, TrackCfg]:
+def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
     """Parse a KML <name> string into (name, TrackCfg), reading inline tokens."""
     m = _RE.match(text)
     if not m:
         raise ValueError(f"Invalid name/text: {text!r}")
 
+    default_cfg = AppConfig.get().default_track_cfg
+    cfg = TrackCfg(
+        default_cfg.velocity,
+        default_cfg.interval,
+        default_cfg.delay,
+        default_cfg.loop_mode,
+        default_cfg.repeat_mode,
+        default_cfg.mode,
+        default_cfg.source,
+    )
+
     name = m.group(1) or m.group(2)
-    cfg = TrackCfg()
     seen_interval = False
 
     # iterate tokens like 'velocity=30', 'interval=500', 'mode=trk-container'
@@ -36,10 +47,6 @@ def parse_name(text: str) -> tuple[str, TrackCfg]:
             elif tok == "repeat":
                 cfg.repeat = True
 
-    # normalize source
-    if not cfg.source:
-        cfg.source = "unknown"
-
     # normalize mode names
     lm = cfg.mode.lower()
     if lm in ("sea", "nmea"):
@@ -48,9 +55,6 @@ def parse_name(text: str) -> tuple[str, TrackCfg]:
         cfg.mode = "trk-auto"
     elif lm in ("trk-container",):
         cfg.mode = "trk-container"
-    else:
-        # unknown: fall back to nmea
-        cfg.mode = "nmea"
 
     # default interval for container if not overridden
     if cfg.mode == "trk-container" and not seen_interval:
@@ -81,7 +85,7 @@ def parse_tracks(path: str) -> list[tuple[str, TrackCfg, list[tuple[float, float
             lon, lat = map(float, parts[:2])
             coords.append((lat, lon))
 
-        name, cfg = parse_name((name_el.text or "").strip())
+        name, cfg = parse_cfg_in_name_tags((name_el.text or "").strip())
         tracks.append((name, cfg, coords))
 
     return tracks
