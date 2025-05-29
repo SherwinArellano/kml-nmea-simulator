@@ -9,10 +9,11 @@ class TimestampParam(CallParams):
         self.timestamp = timestamp
 
 
-@dataclass
 class TransportContext(CallContext):
-    ti: TrackInfo
-    payload: bytes
+    def __init__(self, ti: TrackInfo, payload: bytes):
+        super().__init__()
+        self.ti = ti
+        self.payload = payload
 
 
 class Transport(ABC):
