@@ -41,6 +41,9 @@ async def main():
             signal.SIGINT, lambda: asyncio.create_task(sm.stop_all())
         )
 
+    if not sm.transports and not sm.instant_transports:
+        sys.exit("No transports set or enabled.")
+
     await sm.start_all()
 
 
