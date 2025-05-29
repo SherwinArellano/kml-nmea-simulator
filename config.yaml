@@ -1,0 +1,59 @@
+# === General Simulation Settings ===
+# track km/h
+default_velocity: 50.0
+# ms between messages
+default_interval: 1000
+# ms before simulation starts
+default_delay: 0
+
+# Go back to start destination after reaching end destination
+default_loop_mode: false
+# Restart after completing a whole track (included loop)
+default_repeat_mode: false
+
+# nmea | trk-auto | trk-container
+default_mode: nmea
+# Only required for trk modes
+default_source: truck
+
+# Emit all NMEA sentences in one message
+nmea_batch: true
+# List of NMEA sentences to send (currently supported: GPRMC, GPGGA, GPGLL)
+nmea_types:
+  - GPRMC
+  - GPGGA
+  - GPGLL
+
+# === Output Targets ===
+udp:
+  # If true, this mode becomes active, i.e will send to UDP (can be set in cli args with `--udp` option)
+  enabled: false
+  host: localhost
+  port: 10110
+
+mqtt:
+  # If true, this mode becomes active, i.e will send to MQTT (can be set in cli args with `--mqtt` option)
+  enabled: false
+  host: localhost
+  port: 1883
+  topic: operations
+
+filegen:
+  # If true, this mode becomes active, i.e. will generate files (can be set in cli args with `--filegen` option)
+  enabled: false
+  # If true, generate file(s) instantly instead of streaming
+  streaming: false
+  # 'single' = one merged file, 'multi' = one file per track
+  mode: single
+  # Used in 'single' mode
+  outfile: output.trks
+  # Used in 'multi' mode
+  outdir: ./output/trks
+
+# === REST Server Settings ===
+rest:
+  # If true, this mode becomes active, i.e will activate REST server (can be set in cli args with `--rest` option)
+  enabled: false
+  host: 0.0.0.0
+  port: 8000
+  backend_url: http://localhost:8001
