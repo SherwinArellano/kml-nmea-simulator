@@ -18,7 +18,9 @@ def build_mqtt_cfg(cli: Args, yaml_cfg: dict[str, Any]) -> MQTTConfig | None:
 
     if "mqtt_broker" in cli:
         host, port = parse_host_port(cli.mqtt_broker or DEFAULT_MQTT_URL)
-        mqtt_cfg = MQTTConfig(True, host, port, cli.topic or DEFAULT_MQTT_TOPIC)
+        mqtt_cfg = MQTTConfig(
+            True, host, port, cli.topic if "topic" in cli else DEFAULT_MQTT_TOPIC
+        )
     elif len(yaml_cfg):
         host = yaml_cfg.get("host")
         if not host:
