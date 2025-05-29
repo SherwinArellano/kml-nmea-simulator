@@ -19,18 +19,24 @@ class ServiceManager:
 
         # build transports
         cfg = AppConfig.get()
-        if cfg.filegen_mode == "single":
+        if cfg.filegen and cfg.filegen.enabled and cfg.filegen.mode == "single":
             print("Added transport: SingleFileTransport")
-            self.transports.append(SingleFileTransport(cfg.outfile))
-        if cfg.filegen_mode == "multi":
+            if not cfg.filegen.outfile:
+                raise KeyError("Missing required 'outfile' option in filegen mode")
+            self.transports.append(SingleFileTransport(cfg.filegen.outfile))
+        if cfg.filegen and cfg.filegen.enabled and cfg.filegen.mode == "multi":
             print("Added transport: MultiFilesTransport")
-            self.transports.append(MultiFilesTransport(cfg.outdir))
-        if cfg.udp_target:
+            if not cfg.filegen.outdir:
+                raise KeyError("Missing required 'outdir' option in filegen mode")
+            self.transports.append(MultiFilesTransport(cfg.filegen.outdir))
+        if cfg.udp and cfg.udp.enabled:
             print("Added transport: UDPTransport")
-            self.transports.append(UDPTransport(*cfg.udp_target))
-        if cfg.mqtt_broker:
+            self.transports.append(UDPTransport(cfg.udp.host, cfg.udp.port))
+        if cfg.mqtt and cfg.mqtt.enabled:
             print("Added transport: MQTTTransport")
-            self.transports.append(MQTTTransport(cfg.mqtt_broker, cfg.mqtt_topic))
+            self.transports.append(
+                MQTTTransport((cfg.mqtt.host, cfg.mqtt.port), cfg.mqtt.topic)
+            )
 
     def register(self, service: Service):
         service.tm = self.tm

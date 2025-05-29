@@ -17,7 +17,7 @@ class StreamingService(Service):
             builder = get_builder(ti.cfg.mode)
 
             cfg = AppConfig.get()
-            if cfg.filegen_mode:
+            if cfg.filegen and not cfg.filegen.streaming:
                 player = InstantPlayer(ti, builder, self.transports)
             else:
                 player = SimulatedPlayer(ti, builder, self.transports)

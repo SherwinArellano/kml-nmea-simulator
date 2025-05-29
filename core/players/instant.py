@@ -40,7 +40,7 @@ class InstantPlayer(TrackPlayer):
             for t in self.transports:
                 ctx = TransportContext(self.ti, payload)
 
-                if app_cfg.filegen_mode == "single":
+                if app_cfg.filegen and app_cfg.filegen.mode == "single":
                     ctx.set(TimestampParam(ts))
 
                 t.send(ctx)

@@ -3,7 +3,7 @@ from core.parser import parse_tracks
 from core.models import TrackInfo
 from core.services import ServiceManager, StreamingService, RESTService
 from core.track_manager import TrackManager
-from core.config import parse_args, build_app_cfg, AppConfig
+from core.config import parse_args, build_app_cfg, load_yaml_config, AppConfig
 import sys
 import asyncio
 import signal
@@ -11,7 +11,8 @@ import signal
 
 async def main():
     args = parse_args()
-    cfg = build_app_cfg(args)
+    yaml_cfg = load_yaml_config(args.config)
+    cfg = build_app_cfg(args, yaml_cfg)
     AppConfig.init(cfg)
 
     if not cfg.kml_paths:
