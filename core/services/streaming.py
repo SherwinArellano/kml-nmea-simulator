@@ -3,6 +3,7 @@ from core.players import SimulatedPlayer, InstantPlayer
 from core.messages import get_builder
 from typing import override
 from core.config import AppConfig
+from core.utils import run_tasks_with_error_logging
 import asyncio
 
 
@@ -26,7 +27,7 @@ class StreamingService(Service):
                 player = InstantPlayer(ti, builder, self.instant_transports)
                 self._tasks.append(asyncio.create_task(player.play()))
 
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        await run_tasks_with_error_logging(self._tasks)
 
     @override
     async def stop(self):
@@ -34,5 +35,5 @@ class StreamingService(Service):
             task.cancel()
 
         # ensure all cancellations are processed
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        await run_tasks_with_error_logging(self._tasks)
         self._tasks.clear()
