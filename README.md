@@ -166,7 +166,7 @@ Per-minute container tracking messages (one update every minute by default). Sam
 
 ## Improvements
 
-### [ ] Event Emitter
+### [ ] Event Emitter (Perhaps not needed anymore)
 
 Use the event emitter (pyee) to prevent _"prop-drilling"_ `AppConfig` and to decouple classes from other classes. For example, `TrackPlayer` is getting passed `AppConfig` just because it needs the `AppConfig.nmea_types` global configuration.
 
@@ -192,8 +192,12 @@ class TrackPlayer(ABC):
     def on_finished(self, handler): ...
 ```
 
-### [ ] Remove AppConfig
+**Update (May 29, 2025):** Perhaps not needed at all and just added architectural complexity.
+
+### [x] ~~Remove AppConfig~~
 
 As it stands, app config is a god object which I want to avoid after thinking about it. In the sense that it creates this sense of obligation that I have to depend on it too much and pass it anywhere it's needed. Also, there's the overhead of adding a new argument for the cli also means maintaining `AppConfig`. And so I decided in the future to remove it.
 
 As for what will happen to classes that do depend on it, look at the `core.utils.call_context` module for inspiration, also check event emitter, and always think: Single Responsibility Principle, i.e., _does this class really need to be coupled with this other class?_ Think in components, think in composition.
+
+**Update (May 29, 2025):** Okay so trying to inject this everywhere and decoupling its components just lead to more architecture complexity and dependency indirection. I made it instead a Singleton which classes can use globally if they need the global App configuration. It breaks the impurity of methods but it maintains the simplicity and maintainability of code.
