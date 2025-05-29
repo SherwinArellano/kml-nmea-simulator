@@ -36,7 +36,11 @@ async def main():
     sm.register(StreamingService())
 
     loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(sm.stop_all()))
+    if sys.platform != "win32":
+        loop.add_signal_handler(
+            signal.SIGINT, lambda: asyncio.create_task(sm.stop_all())
+        )
+
     await sm.start_all()
 
 
