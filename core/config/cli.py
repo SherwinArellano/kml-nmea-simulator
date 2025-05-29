@@ -7,7 +7,6 @@ class Args(argparse.Namespace):
     udp_target: str | None
     mqtt_broker: str | None
     rest_target: str | None
-    backend_url: str | None
     topic: str
     nmea_types: str | None
     nmea_batch_types: bool | None
@@ -104,16 +103,8 @@ def parse_args() -> Args:
         dest="rest_target",
         metavar="HOST:PORT",
         nargs="?",
-        help="REST service address;\n"
-        f"If address not provided, defaults to {DEFAULT_REST_URL}\n"
-        "Needs --backend-url option to be set.",
-    )
-
-    parser.add_argument(
-        "--backend-url",
-        dest="backend_url",
-        metavar="HOST:PORT",
-        help="Backend service address, needed by REST to communicate",
+        help="Backend service address to communicate with;\n"
+        f"If address not provided, defaults to {DEFAULT_REST_URL}\n",
     )
 
     return parser.parse_args(namespace=Args())

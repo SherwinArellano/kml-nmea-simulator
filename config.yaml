@@ -1,4 +1,3 @@
-# === General Simulation Settings ===
 # track km/h
 default_velocity: 50.0
 # ms between messages
@@ -50,10 +49,7 @@ filegen:
   # Used in 'multi' mode
   outdir: ./output/trks
 
-# === REST Server Settings ===
 rest:
-  # If true, this mode becomes active, i.e will activate REST server (can be set in cli args with `--rest` option)
+  # If true, this mode becomes active, i.e will activate REST service (can be set in cli args with `--rest` option)
   enabled: false
-  host: 0.0.0.0
-  port: 8000
-  backend_url: http://localhost:8001
+  url: http://localhost:8000
