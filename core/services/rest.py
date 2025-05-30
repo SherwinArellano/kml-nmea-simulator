@@ -86,6 +86,9 @@ class RESTService(Service):
         except asyncio.CancelledError:  # keyboard interrupt (Ctrl + C)
             op_status.status_code = "02"
         except Exception as e:
+            op_status.status_code = "03"
+            op_status.description = str(e)
+            await self.put_operation(op_status)
             print(f"An exception occured: {e}")
         finally:
             await self.put_operation(op_status)
