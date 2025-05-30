@@ -74,9 +74,9 @@
       </Pair>
     </StyleMap>
     <Folder>
-      <name><![CDATA["Truck 1" velocity=10 interval=500 mode=land]]></name>
+      <name><![CDATA[TR235-1 velocity=10 interval=500 mode=land]]></name>
       <Placemark>
-        <name><![CDATA["Truck 1" velocity=10 interval=500 mode=land]]></name>
+        <name><![CDATA[TR235-1 velocity=10 interval=500 mode=land]]></name>
         <styleUrl>#line-1267FF-5000-nodesc</styleUrl>
         <LineString>
           <tessellate>1</tessellate>
@@ -113,9 +113,9 @@
       </Placemark>
     </Folder>
     <Folder>
-      <name><![CDATA["Truck 2" velocity=15 mode=land]]></name>
+      <name><![CDATA[TR982-1 velocity=15 mode=land]]></name>
       <Placemark>
-        <name><![CDATA["Truck 2" velocity=15 mode=land]]></name>
+        <name><![CDATA[TR982-1 velocity=15 mode=land]]></name>
         <styleUrl>#line-1267FF-5000-nodesc</styleUrl>
         <LineString>
           <tessellate>1</tessellate>

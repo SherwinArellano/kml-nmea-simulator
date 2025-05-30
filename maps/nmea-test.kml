@@ -104,7 +104,7 @@
     <Folder>
       <name>Ships</name>
       <Placemark>
-        <name><![CDATA["Ship 1" velocity=20 loop]]></name>
+        <name><![CDATA[SP496-1 velocity=20 loop]]></name>
         <styleUrl>#line-000000-1200-nodesc</styleUrl>
         <LineString>
           <tessellate>1</tessellate>
@@ -130,9 +130,9 @@
       </Placemark>
     </Folder>
     <Folder>
-      <name><![CDATA[AA003 velocity=30 interval=500 loop]]></name>
+      <name><![CDATA[TR839-1 velocity=30 interval=500 mode=land loop]]></name>
       <Placemark>
-        <name><![CDATA[AA003 velocity=30 interval=500 loop]]></name>
+        <name><![CDATA[TR839-1 velocity=30 interval=500 mode=land loop]]></name>
         <styleUrl>#line-1267FF-5000-nodesc</styleUrl>
         <LineString>
           <tessellate>1</tessellate>
