@@ -4,9 +4,9 @@ from core.models import TrackInfo
 from core.services import ServiceManager, StreamingService, RESTService
 from core.track_manager import TrackManager
 from core.config import parse_args, build_app_cfg, load_yaml_config, AppConfig
+from core.utils import increment_all_track_numbers
 import sys
 import asyncio
-import signal
 
 
 async def main():
@@ -24,6 +24,7 @@ async def main():
         for name, track_cfg, coords in parse_tracks(path):
             print(f"Loaded track: {name} (from {path})")
             tracks.append(TrackInfo(name, track_cfg, coords, path))
+        increment_all_track_numbers(path, path)
 
     if not tracks:
         sys.exit("No tracks found in the provided KML files.")
