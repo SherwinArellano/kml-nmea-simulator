@@ -6,8 +6,10 @@ async def run_tasks_with_error_logging(tasks: list[asyncio.Task]):
     Run all tasks concurrently. Logs errors AFTER all tasks have either
     completed or raised an error.
 
-    On KeyboardInterrupt (Ctrl + C), errors WILL NOT show.
-    This is to be analyzed.
+    On KeyboardInterrupt (Ctrl + C), errors WILL NOT show. If you want for
+    errors to be shown then handle it using try/except in your async code.
+    If you want to check for a KeyboardInterrupt, catch an
+    asyncio.CancelledError exception.
     """
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
