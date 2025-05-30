@@ -35,12 +35,6 @@ async def main():
     # Register services
     sm.register(RESTService())
 
-    loop = asyncio.get_running_loop()
-    if sys.platform != "win32":
-        loop.add_signal_handler(
-            signal.SIGINT, lambda: asyncio.create_task(sm.stop_all())
-        )
-
     if not sm.transports and not sm.instant_transports:
         sys.exit("No transports set or enabled.")
 
