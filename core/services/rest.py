@@ -76,11 +76,16 @@ class RESTService(Service):
         op_status = OperationStatus(operation.operation_id, "01", None)
         await self.put_operation(op_status)
 
-        print(f"▶ {ti.name}: {ti.cfg}")
-        builder = get_builder(ti.cfg.mode)
-        if self.transports:
-            player = SimulatedPlayer(ti, builder, self.transports)
-            await player.play()
-
-        op_status.status_code = "02"
-        await self.put_operation(op_status)
+        try:
+            print(f"▶ {ti.name}: {ti.cfg}")
+            builder = get_builder(ti.cfg.mode)
+            op_status.status_code = "02"
+            if self.transports:
+                player = SimulatedPlayer(ti, builder, self.transports)
+                await player.play()
+        except asyncio.CancelledError:  # keyboard interrupt (Ctrl + C)
+            op_status.status_code = "02"
+        except Exception as e:
+            print(f"An exception occured: {e}")
+        finally:
+            await self.put_operation(op_status)
