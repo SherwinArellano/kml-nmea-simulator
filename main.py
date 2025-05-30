@@ -33,7 +33,7 @@ async def main():
     sm = ServiceManager(tm)
 
     # Register services
-    sm.register(StreamingService())
+    sm.register(RESTService())
 
     loop = asyncio.get_running_loop()
     if sys.platform != "win32":
