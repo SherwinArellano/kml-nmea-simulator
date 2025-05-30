@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import ClassVar, Literal
 
 
 @dataclass
@@ -20,3 +21,16 @@ class Operation:
     estimated_arrival_time: str
     # e.g. 31 (fixed HH)
     operation_total_time: int
+
+
+@dataclass
+class OperationStatus:
+    operation_id: str  # e.g. "AX5T1S-112"
+    status_code: Literal["01", "02", "03"] | str
+    description: str | None  # used when there's an anomaly
+
+    STATUS_CODE_MAP: ClassVar[dict[str, str]] = {
+        "01": "activated",
+        "02": "disactivated",
+        "03": "anomaly",
+    }

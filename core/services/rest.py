@@ -3,7 +3,7 @@ from typing import override
 import httpx
 from core.messages import get_builder
 from core.players import SimulatedPlayer
-from core.models import Operation
+from core.models import Operation, OperationStatus, TrackInfo
 from core.config import AppConfig
 from dataclasses import asdict
 from core.utils import run_tasks_and_stop_on_error, run_tasks_with_error_logging
@@ -25,21 +25,27 @@ class RESTService(Service):
         url = f"{self.base_url}/api/operations"
         response = await self._client.post(url, json=asdict(operation))
         response.raise_for_status()
-        print(f"Posted operation with id: {operation.operation_id}")
+        return response
+
+    async def put_operation(self, op_status: OperationStatus):
+        url = f"{self.base_url}/api/operations/{op_status.operation_id}"
+        response = await self._client.put(url, json=asdict(op_status))
+        response.raise_for_status()
         return response
 
     @override
     async def start(self):
-        tasks: list[asyncio.Task] = []
-        for track in self.tm.values():
+        track_operations: list[tuple[TrackInfo, Operation]] = []
+
+        for ti in self.tm.values():
             operation = Operation(
-                operation_id=track.name,
+                operation_id=ti.name,
                 code_trailer="XX000XX",
                 code_container="XXX0000",
                 cod_prov="XX",
                 cod_comune="X000",
                 destination_port="X00",
-                gps_position=track.coords[0],
+                gps_position=ti.coords[0],
                 documents=None,
                 start_date="",
                 operation_date="",
@@ -47,24 +53,34 @@ class RESTService(Service):
                 operation_total_time=0,
             )
 
-            tasks.append(asyncio.create_task(self.post_operation(operation)))
+            track_operations.append((ti, operation))
 
-        results: list[httpx.Response] | None = await run_tasks_and_stop_on_error(tasks)
+        results: list[httpx.Response] | None = await run_tasks_and_stop_on_error(
+            [asyncio.create_task(self.post_operation(op)) for _, op in track_operations]
+        )
+
         if results:
-            await self.start_polling()
+            for ti, operation in track_operations:
+                task = asyncio.create_task(self.start_polling(ti, operation))
+                self._tasks.append(task)
+            await run_tasks_with_error_logging(self._tasks)
         else:
-            print("Tracks are not played, a backend error occurred.")
+            msg = "[ERROR] Tracks are not played, a backend error occurred during POST."
+            print(msg)
 
     @override
     async def stop(self):
         await self._client.aclose()
 
-    async def start_polling(self):
-        for ti in self.tm.values():
-            print(f"▶ {ti.name}: {ti.cfg}")
-            builder = get_builder(ti.cfg.mode)
-            if self.transports:
-                player = SimulatedPlayer(ti, builder, self.transports)
-                self._tasks.append(asyncio.create_task(player.play()))
+    async def start_polling(self, ti: TrackInfo, operation: Operation):
+        op_status = OperationStatus(operation.operation_id, "01", None)
+        await self.put_operation(op_status)
 
-        await run_tasks_with_error_logging(self._tasks)
+        print(f"▶ {ti.name}: {ti.cfg}")
+        builder = get_builder(ti.cfg.mode)
+        if self.transports:
+            player = SimulatedPlayer(ti, builder, self.transports)
+            await player.play()
+
+        op_status.status_code = "02"
+        await self.put_operation(op_status)
