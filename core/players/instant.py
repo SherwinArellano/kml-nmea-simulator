@@ -28,6 +28,8 @@ class InstantPlayer(TrackPlayer):
             msgs = self.builder.build(ctx)
 
             for m in msgs:
+                if AppConfig.get().verbose:
+                    print(m)
                 yield epoch_s, m.encode()
 
             prev_point = point

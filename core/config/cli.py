@@ -10,6 +10,7 @@ class Args(argparse.Namespace):
     topic: str
     nmea_types: str | None
     nmea_batch_types: bool | None
+    verbose: bool
     filegen_mode: FilegenMode
     filegen_stream: bool
     outdir: str
@@ -66,6 +67,13 @@ def parse_args() -> Args:
         "--nmea-batch-types",
         action="store_true",
         help="if set, emit all selected NMEA sentences in one UDP/MQTT packet per update",
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="if set, print transport messages on console",
     )
 
     parser.add_argument(

@@ -22,6 +22,7 @@ class AppConfig:
     kml_paths: list[str]
     nmea_batch: bool
     nmea_types: list[NmeaType]
+    verbose: bool
     default_track_cfg: DefaultTrackConfig
     udp: UDPConfig | None
     mqtt: MQTTConfig | None
@@ -51,6 +52,10 @@ def load_yaml_config(path: str) -> dict[str, Any]:
     return {}
 
 
+def build_verbose(cli: Args, yaml_cfg: dict[str, Any]) -> bool:
+    return bool(cli.verbose if "verbose" in cli else yaml_cfg.get("verbose", False))
+
+
 def build_app_cfg(cli: Args, yaml_cfg: dict[str, Any]):
     # Load YAML subsections safely
     yaml_udp_cfg: dict[str, Any] = yaml_cfg.get("udp", {})
@@ -62,6 +67,7 @@ def build_app_cfg(cli: Args, yaml_cfg: dict[str, Any]):
         kml_paths=build_kml_paths(cli, yaml_cfg),
         nmea_batch=build_nmea_batch(cli, yaml_cfg),
         nmea_types=build_nmea_types(cli, yaml_cfg),
+        verbose=build_verbose(cli, yaml_cfg),
         default_track_cfg=build_default_track_cfg(yaml_cfg),
         udp=build_udp_cfg(cli, yaml_udp_cfg),
         mqtt=build_mqtt_cfg(cli, yaml_mqtt_cfg),

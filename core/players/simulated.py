@@ -4,6 +4,7 @@ from core.messages import MessageContext, TRKParams
 from core.transports import TransportContext
 from core.walker import walk_path
 from .base import TrackPlayer
+from core.config import AppConfig
 
 
 class SimulatedPlayer(TrackPlayer):
@@ -25,6 +26,8 @@ class SimulatedPlayer(TrackPlayer):
                 msgs = self.builder.build(ctx)
                 for t in self.transports:
                     for m in msgs:
+                        if AppConfig.get().verbose:
+                            print(m)
                         t.send(TransportContext(self.ti, m.encode()))
 
                 await asyncio.sleep(cfg.interval_ms / 1000)
