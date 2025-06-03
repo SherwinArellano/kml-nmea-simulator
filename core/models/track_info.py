@@ -13,6 +13,7 @@ class TrackCfg:
     repeat: bool
     mode: TrackMode | str
     source: str  # boat, ship, truck, etc.
+    dest_port: str
 
 
 @dataclass

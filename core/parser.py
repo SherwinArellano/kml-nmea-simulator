@@ -5,6 +5,8 @@ from core.config import AppConfig
 _NS = {"k": "http://www.opengis.net/kml/2.2"}
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
 
+DEFAULT_DESTINATION_PORT = "A01"
+
 
 def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
     """Parse a KML <name> string into (name, TrackCfg), reading inline tokens."""
@@ -14,13 +16,14 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
 
     default_cfg = AppConfig.get().default_track_cfg
     cfg = TrackCfg(
-        default_cfg.velocity,
-        default_cfg.interval,
-        default_cfg.delay,
-        default_cfg.loop_mode,
-        default_cfg.repeat_mode,
-        default_cfg.mode,
-        default_cfg.source,
+        vel_kmh=default_cfg.velocity,
+        interval_ms=default_cfg.interval,
+        delay_ms=default_cfg.delay,
+        loop=default_cfg.loop_mode,
+        repeat=default_cfg.repeat_mode,
+        mode=default_cfg.mode,
+        source=default_cfg.source,
+        dest_port=DEFAULT_DESTINATION_PORT,
     )
 
     name = m.group(1) or m.group(2)
@@ -41,6 +44,8 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
                 cfg.mode = v.lower()
             elif k == "source":
                 cfg.source = v.lower()
+            elif k == "dest-port":
+                cfg.dest_port = v.upper()
         else:
             if tok == "loop":
                 cfg.loop = True

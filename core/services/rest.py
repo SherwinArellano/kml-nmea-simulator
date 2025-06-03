@@ -58,7 +58,7 @@ class RESTService(Service):
                 code_container=generate_code_container(),
                 cod_prov="XX",
                 cod_comune="X000",
-                destination_port="X00",
+                destination_port=ti.cfg.dest_port,
                 gps_position=ti.coords[0],
                 documents=None,
                 start_date=now_str,
