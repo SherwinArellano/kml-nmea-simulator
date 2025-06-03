@@ -24,12 +24,12 @@ nmea_types:
   - GPGLL
 
 # Print transport messages on console
-verbose: true
+verbose: false
 
 # === Output Targets ===
 udp:
   # If true, this mode becomes active, i.e will send to UDP (can be set in cli args with `--udp` option)
-  enabled: true
+  enabled: false
   host: localhost
   port: 10110
 
