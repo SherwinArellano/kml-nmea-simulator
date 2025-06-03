@@ -11,7 +11,7 @@ class Args(argparse.Namespace):
     topic: str
     nmea_types: str | None
     nmea_batch_types: bool | None
-    verbose: bool
+    verbose: bool | None
     filegen_mode: FilegenMode | None
     filegen_stream: bool
     outdir: str
@@ -73,7 +73,6 @@ def parse_args() -> Args:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        default=False,
         help="if set, print transport messages on console",
     )
 
