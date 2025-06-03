@@ -7,11 +7,12 @@ class Args(argparse.Namespace):
     udp_target: str | None
     mqtt_broker: str | None
     rest_target: str | None
+    stream: bool | None
     topic: str
     nmea_types: str | None
     nmea_batch_types: bool | None
     verbose: bool
-    filegen_mode: FilegenMode
+    filegen_mode: FilegenMode | None
     filegen_stream: bool
     outdir: str
     outfile: str
@@ -79,6 +80,7 @@ def parse_args() -> Args:
     parser.add_argument(
         "--filegen",
         dest="filegen_mode",
+        nargs="?",
         choices=["single", "multi"],
         help="single = write one merged file (default);\n" "multi = one file per track",
     )
@@ -104,6 +106,12 @@ def parse_args() -> Args:
         metavar="FILE",
         help="Path to merged output file for single filegen mode\n"
         "(ignored in 'multi' filegen mode; default: output.trks)",
+    )
+
+    parser.add_argument(
+        "--stream",
+        action="store_true",
+        help="if set, will activate streaming service",
     )
 
     parser.add_argument(

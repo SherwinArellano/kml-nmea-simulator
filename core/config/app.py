@@ -5,6 +5,7 @@ from .cli import Args
 from .udp import UDPConfig, build_udp_cfg
 from .mqtt import MQTTConfig, build_mqtt_cfg
 from .filegen import FilegenConfig, build_filegen_cfg
+from .stream import StreamConfig, build_stream_cfg
 from .rest import RESTConfig, build_rest_cfg
 from .track import (
     DefaultTrackConfig,
@@ -27,6 +28,7 @@ class AppConfig:
     udp: UDPConfig | None
     mqtt: MQTTConfig | None
     filegen: FilegenConfig | None
+    stream: StreamConfig | None
     rest: RESTConfig | None
 
     # Singleton backing field
@@ -61,6 +63,7 @@ def build_app_cfg(cli: Args, yaml_cfg: dict[str, Any]):
     yaml_udp_cfg: dict[str, Any] = yaml_cfg.get("udp", {})
     yaml_mqtt_cfg: dict[str, Any] = yaml_cfg.get("mqtt", {})
     yaml_filegen_cfg: dict[str, Any] = yaml_cfg.get("filegen", {})
+    yaml_stream_cfg: dict[str, Any] = yaml_cfg.get("stream", {})
     yaml_rest_cfg: dict[str, Any] = yaml_cfg.get("rest", {})
 
     return AppConfig(
@@ -72,5 +75,6 @@ def build_app_cfg(cli: Args, yaml_cfg: dict[str, Any]):
         udp=build_udp_cfg(cli, yaml_udp_cfg),
         mqtt=build_mqtt_cfg(cli, yaml_mqtt_cfg),
         filegen=build_filegen_cfg(cli, yaml_filegen_cfg),
+        stream=build_stream_cfg(cli, yaml_stream_cfg),
         rest=build_rest_cfg(cli, yaml_rest_cfg),
     )

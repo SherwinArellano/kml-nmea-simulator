@@ -36,7 +36,13 @@ async def main():
     sm = ServiceManager(tm)
 
     # Register services
-    sm.register(RESTService())
+    stream_cfg = AppConfig.get().stream
+    if stream_cfg and stream_cfg.enabled:
+        sm.register(StreamingService())
+
+    rest_cfg = AppConfig.get().rest
+    if rest_cfg and rest_cfg.enabled:
+        sm.register(RESTService())
 
     if not sm.transports and not sm.instant_transports:
         sys.exit("No transports set or enabled.")

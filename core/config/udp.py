@@ -12,21 +12,32 @@ class UDPConfig:
     port: int
 
 
+def parse_udp_yaml(yaml_cfg: dict[str, Any]) -> UDPConfig:
+    host = yaml_cfg.get("host")
+    if not host:
+        raise KeyError("Missing required 'host' in udp section of YAML config")
+
+    port = yaml_cfg.get("port")
+    if not port:
+        raise KeyError("Missing required 'port' in udp section of YAML config")
+
+    return UDPConfig(yaml_cfg.get("enabled", False), host, port)
+
+
 def build_udp_cfg(cli: Args, yaml_cfg: dict[str, Any]) -> UDPConfig | None:
-    udp_cfg = None
+    udp_cfg = parse_udp_yaml(yaml_cfg) if len(yaml_cfg) else None
 
     if "udp_target" in cli:
-        host, port = parse_host_port(cli.udp_target or DEFAULT_UDP_URL)
-        udp_cfg = UDPConfig(True, host, port)
-    elif len(yaml_cfg):
-        host = yaml_cfg.get("host")
-        if not host:
-            raise KeyError("Missing required 'host' in udp section of YAML config")
-
-        port = yaml_cfg.get("port")
-        if not port:
-            raise KeyError("Missing required 'port' in udp section of YAML config")
-
-        udp_cfg = UDPConfig(yaml_cfg.get("enabled", False), host, port)
+        if not cli.udp_target and udp_cfg:
+            # enable yaml config if exists
+            udp_cfg = UDPConfig(
+                True,
+                udp_cfg.host,
+                udp_cfg.port,
+            )
+        else:
+            # use cli provided host:port or defaults
+            host, port = parse_host_port(cli.udp_target or DEFAULT_UDP_URL)
+            udp_cfg = UDPConfig(True, host, port)
 
     return udp_cfg

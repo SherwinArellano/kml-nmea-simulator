@@ -3,6 +3,7 @@ from .cli import *
 from .common import *
 from .filegen import *
 from .mqtt import *
+from .stream import *
 from .rest import *
 from .track import *
 from .udp import *

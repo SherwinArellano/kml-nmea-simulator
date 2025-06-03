@@ -11,22 +11,24 @@ class RESTConfig:
     url: str
 
 
+def parse_rest_yaml(yaml_cfg: dict[str, Any]) -> RESTConfig:
+    url = yaml_cfg.get("url")
+    if not url:
+        raise KeyError("Missing required 'url' in rest section of YAML config")
+
+    return RESTConfig(yaml_cfg.get("enabled", False), url)
+
+
 def build_rest_cfg(cli: Args, yaml_cfg: dict[str, Any]) -> RESTConfig | None:
-    rest_cfg = None
+    rest_cfg = parse_rest_yaml(yaml_cfg) if len(yaml_cfg) else None
 
     if "rest_target" in cli:
-        url = (
-            cli.rest_target
-            if "rest_target" in cli and cli.rest_target
-            else DEFAULT_REST_URL
-        )
-
-        rest_cfg = RESTConfig(True, url)
-    elif len(yaml_cfg):
-        url = yaml_cfg.get("url")
-        if not url:
-            raise KeyError("Missing required 'url' in rest section of YAML config")
-
-        rest_cfg = RESTConfig(yaml_cfg.get("enabled", False), url)
+        if not cli.rest_target and rest_cfg:
+            # enable yaml config if exists
+            rest_cfg = RESTConfig(True, rest_cfg.url)
+        else:
+            # use cli provided host:port or defaults
+            url = cli.rest_target if cli.rest_target else DEFAULT_REST_URL
+            rest_cfg = RESTConfig(True, url)
 
     return rest_cfg
