@@ -6,7 +6,12 @@ from core.players import SimulatedPlayer
 from core.models import Operation, OperationStatus, TrackInfo
 from core.config import AppConfig
 from dataclasses import asdict
-from core.utils import run_tasks_and_stop_on_error, run_tasks_with_error_logging
+from core.utils import (
+    run_tasks_and_stop_on_error,
+    run_tasks_with_error_logging,
+    generate_code_trailer,
+    generate_code_container,
+)
 from datetime import datetime, timedelta
 import asyncio
 import math
@@ -49,8 +54,8 @@ class RESTService(Service):
 
             operation = Operation(
                 operation_id=ti.name,
-                code_trailer="XX000XX",
-                code_container="XXX0000",
+                code_trailer=generate_code_trailer(),
+                code_container=generate_code_container(),
                 cod_prov="XX",
                 cod_comune="X000",
                 destination_port="X00",
