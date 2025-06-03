@@ -20,7 +20,7 @@ class Args(argparse.Namespace):
 
 def parse_args() -> Args:
     parser = argparse.ArgumentParser(
-        description="Stream KML tracks via UDP/MQTT or generate them as files.",
+        description="KML Simulator for IRIDESS' backend. Streams UDP or MQTT (or both) messages of type NMEA and custom TRK. Files can also be generated for a full history of messages.",
         formatter_class=argparse.RawTextHelpFormatter,
         argument_default=argparse.SUPPRESS,
     )
@@ -44,7 +44,7 @@ def parse_args() -> Args:
         metavar="HOST:PORT",
         nargs="?",
         help="UDP target address;\n"
-        f"If address not provided, defaults to {DEFAULT_UDP_URL}",
+        f"If address not provided, uses YAML-provided address otherwise defaults to {DEFAULT_UDP_URL}",
     )
 
     parser.add_argument(
@@ -53,7 +53,7 @@ def parse_args() -> Args:
         metavar="BROKER:PORT",
         nargs="?",
         help="MQTT broker address;\n"
-        f"If address not provided, defaults to {DEFAULT_MQTT_URL}",
+        f"If address not provided, uses YAML-provided address otherwise defaults to {DEFAULT_MQTT_URL}",
     )
 
     parser.add_argument("--topic", help="MQTT topic (default: kml2nmea)")
@@ -81,7 +81,9 @@ def parse_args() -> Args:
         dest="filegen_mode",
         nargs="?",
         choices=["single", "multi"],
-        help="single = write one merged file (default);\n" "multi = one file per track",
+        help="If no mode provided, uses YAML-provided configuration;\n"
+        "single = write one merged file (default);\n"
+        "multi = one file per track",
     )
 
     parser.add_argument(
@@ -119,7 +121,7 @@ def parse_args() -> Args:
         metavar="HOST:PORT",
         nargs="?",
         help="Backend service address to communicate with;\n"
-        f"If address not provided, defaults to {DEFAULT_REST_URL}\n",
+        f"If address not provided, uses YAML-provided address otherwise defaults to {DEFAULT_REST_URL}\n",
     )
 
     return parser.parse_args(namespace=Args())
