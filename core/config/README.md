@@ -1,5 +1,12 @@
 # Configuration Notes
 
+- [Configuration Notes](#configuration-notes)
+  - [Configuration Priority Logic](#configuration-priority-logic)
+  - [How to add a new configuration?](#how-to-add-a-new-configuration)
+
+
+## Configuration Priority Logic
+
 Each configuration follows the following priority:
 
 1. CLI args
@@ -20,3 +27,18 @@ Depending on which configuration (i.e. udp, mqtt, rest), it follows:
 If neither CLI arguments nor YAML configs are set, then they are considered as "not set" or `None`.
 
 **TL:DR; CLI args -> YAML -> None**
+
+## How to add a new configuration?
+
+1. Edit config.yaml to add the new config
+2. Edit config/cli.py to add the new config (if wanted to have this in CLI as well):
+
+- Modify the Args class
+- Add new parser argument
+
+3. Edit `config/app.py` to add the new config:
+
+- Modify AppConfig
+- (If needed,) create a new module named `XXXConfig`
+  - Export new module in `config/__init__.py`
+- Create its builder helper function and use in AppConfig's initialization
