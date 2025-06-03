@@ -14,6 +14,8 @@ class TrackCfg:
     mode: TrackMode | str
     source: str  # boat, ship, truck, etc.
     dest_port: str
+    prov: str
+    comune: str
 
 
 @dataclass

@@ -1,6 +1,7 @@
 from core.models import TrackCfg, TrackInfo
 from core.config import AppConfig
 from core.walker import total_path_distance
+from core.utils import get_cod_prov, get_cod_comune
 from lxml import etree as ET
 import re
 
@@ -28,6 +29,8 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
         mode=default_cfg.mode,
         source=default_cfg.source,
         dest_port=DEFAULT_DESTINATION_PORT,
+        prov="",
+        comune="",
     )
 
     name = m.group(1) or m.group(2)
@@ -50,6 +53,10 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
                 cfg.source = v.lower()
             elif k == "dest-port":
                 cfg.dest_port = v.upper()
+            elif k == "prov":
+                cfg.prov = v
+            elif k == "comune":
+                cfg.comune = v
         else:
             if tok == "loop":
                 cfg.loop = True
@@ -112,6 +119,9 @@ def parse_driving_placemarks(
     # Parse starting and ending placemark
     start_el: ET._Element = pms[1].find("k:name", _NS)
     end_el: ET._Element = pms[-1].find("k:name", _NS)
+
+    cfg.prov = get_cod_prov(start_el.text, cfg.prov) or ""
+    cfg.comune = get_cod_comune(start_el.text, cfg.comune) or ""
 
     ti = TrackInfo(
         name=vehicle_name,
