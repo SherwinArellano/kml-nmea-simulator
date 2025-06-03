@@ -53,10 +53,11 @@ filegen:
   outdir: ./output/trks
 
 stream:
-  # If true, this mode becomes active, i.e will stream messages calculated from the provided KML maps
+  # If true, this mode becomes active, i.e will stream messages calculated from the provided KML maps (can be set in cli args with `--stream` option)
   enabled: false
 
 rest:
   # If true, this mode becomes active, i.e will activate REST service (can be set in cli args with `--rest` option)
   enabled: true
+  # Backend's url for the simulator to communicate with
   url: http://localhost:8000
