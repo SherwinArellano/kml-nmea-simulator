@@ -29,3 +29,23 @@ def walk_path(
         cur = nxt
 
     yield points[-1]  # ensure final endpoint is emitted
+
+
+from typing import List, Tuple
+from core.geodesy import geod_dist
+
+
+def total_path_distance(points: List[Tuple[float, float]], loop: bool = False) -> float:
+    """
+    Return the total geodesic length (in metres) along the polyline defined by `points`.
+    If loop=True, this “ping-pong”-walk (forward then back) is used, exactly as in walk_path.
+    """
+    if loop:
+        pts = points + points[-2::-1]
+    else:
+        pts = points
+
+    total = 0.0
+    for a, b in zip(pts, pts[1:]):
+        total += geod_dist(a, b)
+    return total

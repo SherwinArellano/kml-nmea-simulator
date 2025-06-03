@@ -7,7 +7,9 @@ from core.models import Operation, OperationStatus, TrackInfo
 from core.config import AppConfig
 from dataclasses import asdict
 from core.utils import run_tasks_and_stop_on_error, run_tasks_with_error_logging
+from datetime import datetime, timedelta
 import asyncio
+import math
 
 
 class RESTService(Service):
@@ -37,7 +39,14 @@ class RESTService(Service):
     async def start(self):
         track_operations: list[tuple[TrackInfo, Operation]] = []
 
+        now = datetime.now()
+        now_str = now.strftime("%Y-%m-%dT%H:%M:%S")
         for ti in self.tm.values():
+            hours = (ti.total_dist / 1000.0) / ti.cfg.vel_kmh
+            op_total = math.ceil(hours)
+            eta = now + timedelta(hours=op_total)
+            eta_str = eta.strftime("%Y-%m-%dT%H:%M:%S")
+
             operation = Operation(
                 operation_id=ti.name,
                 code_trailer="XX000XX",
@@ -47,10 +56,10 @@ class RESTService(Service):
                 destination_port="X00",
                 gps_position=ti.coords[0],
                 documents=None,
-                start_date="",
-                operation_date="",
-                estimated_arrival_time="",
-                operation_total_time=0,
+                start_date=now_str,
+                operation_date=now_str,
+                estimated_arrival_time=eta_str,
+                operation_total_time=op_total,
             )
 
             track_operations.append((ti, operation))

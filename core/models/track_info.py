@@ -20,4 +20,5 @@ class TrackInfo:
     name: str
     cfg: TrackCfg
     coords: list[tuple[float, float]]
+    total_dist: float
     path: str
