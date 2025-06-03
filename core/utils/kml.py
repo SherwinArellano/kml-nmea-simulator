@@ -22,7 +22,8 @@ def increment_all_track_numbers(path: str, output_path: str):
         if pm_name_el is None:
             continue
 
-        old_name = (name_el or pm_name_el).text or ""
+        # lxml wants explicit None‐check hence `if name_el is not None`
+        old_name = (name_el if name_el is not None else pm_name_el).text or ""
         match = _RE.match(old_name)
         if not match:
             continue
@@ -32,7 +33,7 @@ def increment_all_track_numbers(path: str, output_path: str):
         new_name = CDATA(f"{prefix}{new_number}{suffix}")
 
         # Ships have their own layer
-        if name_el and _RE.match(name_el.text or ""):
+        if name_el is not None and _RE.match(name_el.text or ""):
             name_el.text = new_name
 
         # While driving routes (trucks) only have one layer
