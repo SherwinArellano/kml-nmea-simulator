@@ -29,7 +29,6 @@ A real‑time track simulator that streams simulated movement of one or more obj
     - [1. NMEA (`mode=nmea`)](#1-nmea-modenmea)
     - [2. TRK-auto (`mode=trk-auto`)](#2-trk-auto-modetrk-auto)
     - [3. TRK-container (`mode=trk-container`)](#3-trk-container-modetrk-container)
-  - [Workflow \& Integration](#workflow--integration)
   - [Improvements](#improvements)
     - [\[ \] Event Emitter (Perhaps not needed anymore)](#--event-emitter-perhaps-not-needed-anymore)
     - [\[x\] ~~Remove AppConfig~~](#x-remove-appconfig)
@@ -139,12 +138,6 @@ Published over UDP and/or MQTT topic `<topic>/trk-auto/<ID>`.
 ### 3. TRK-container (`mode=trk-container`)
 
 Per-minute container tracking messages (one update every minute by default). Same `$TRK` format, under `<topic>/trk-container/<ID>`.
-
-## Workflow & Integration
-
-1. **Register trip** in your system (e.g., via REST API).
-2. **Run simulator**, pointing to KML source: it loads tracks, parses inline configs, and⬇
-3. **Stream** live updates or **generate files** based on selected options.
 
 ## Improvements
 
