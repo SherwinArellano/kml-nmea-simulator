@@ -1,11 +1,15 @@
-from core.models import TrackCfg
-import re, xml.etree.ElementTree as ET
+from core.models import TrackCfg, TrackInfo
 from core.config import AppConfig
+from core.walker import total_path_distance
+from lxml import etree as ET
+import re
 
 _NS = {"k": "http://www.opengis.net/kml/2.2"}
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
 
 DEFAULT_DESTINATION_PORT = "A01"
+
+parser = ET.XMLParser(remove_blank_text=True)
 
 
 def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
@@ -68,29 +72,104 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
     return name, cfg
 
 
-def parse_tracks(path: str) -> list[tuple[str, TrackCfg, list[tuple[float, float]]]]:
-    """Load all routes from a KML file, returning list of (name,cfg,coords)."""
-    tracks: list[tuple[str, TrackCfg, list[tuple[float, float]]]] = []
+def parse_main_placemark(
+    pm: ET._Element,
+) -> tuple[str, str, TrackCfg, list[tuple[float, float]]] | None:
+    """
+    Parse main placemark of a folder element, returning a tuple of (raw_name,vehicle_name,cfg,coords).
+    """
+    name_el = pm.find("k:name", _NS)
+    line_el = pm.find("k:LineString", _NS)
+    if name_el is None or line_el is None:
+        return
 
-    # find each Placemark with a LineString
-    for pm in ET.parse(path).iterfind(".//k:Placemark", _NS):
-        name_el = pm.find("k:name", _NS)
-        line_el = pm.find("k:LineString", _NS)
-        if name_el is None or line_el is None:
+    # parse coordinate tuples (lon,lat) -> (lat,lon)
+    coord_el = line_el.find("k:coordinates", _NS)
+    if coord_el is None:
+        return
+
+    coords: list[tuple[float, float]] = []
+    for c in (coord_el.text or "").split():
+        parts = c.split(",")
+        lon, lat = map(float, parts[:2])
+        coords.append((lat, lon))
+
+    raw_name = (name_el.text or "").strip()
+    vehicle_name, cfg = parse_cfg_in_name_tags(raw_name)
+
+    return (raw_name, vehicle_name, cfg, coords)
+
+
+def parse_driving_placemarks(
+    pms: list[ET._Element], tracks: list[TrackInfo], path: str
+) -> None:
+    results = parse_main_placemark(pms[0])
+    if results is None:
+        return
+
+    raw_name, vehicle_name, cfg, coords = results
+
+    # Parse starting and ending placemark
+    start_el: ET._Element = pms[1].find("k:name", _NS)
+    end_el: ET._Element = pms[-1].find("k:name", _NS)
+
+    ti = TrackInfo(
+        name=vehicle_name,
+        cfg=cfg,
+        coords=coords,
+        path=path,
+        total_dist=total_path_distance(coords, cfg.loop),
+        raw_name=raw_name,
+        start_placemark=start_el.text,
+        end_placemark=end_el.text,
+    )
+
+    tracks.append(ti)
+
+
+def parse_lines_placemarks(
+    pms: list[ET._Element], tracks: list[TrackInfo], path: str
+) -> None:
+    for pm in pms:
+        results = parse_main_placemark(pm)
+        if results is None:
             continue
 
-        # parse coordinate tuples (lon,lat) -> (lat,lon)
-        coord_el = line_el.find("k:coordinates", _NS)
-        if coord_el is None:
+        raw_name, vehicle_name, cfg, coords = results
+        ti = TrackInfo(
+            name=vehicle_name,
+            cfg=cfg,
+            coords=coords,
+            path=path,
+            total_dist=total_path_distance(coords, cfg.loop),
+            raw_name=raw_name,
+            start_placemark=None,
+            end_placemark=None,
+        )
+
+        tracks.append(ti)
+
+
+def parse_tracks(path: str) -> list[TrackInfo]:
+    tracks: list[TrackInfo] = []
+
+    for folder in ET.parse(path, parser).iterfind(".//k:Folder", _NS):
+        folder: ET._Element
+        # 1. Find all <Placemark> in a <Folder>
+        # 2. Check if <Folder> is a driving route or routes of lines
+        #    by checking if the second Placemark has <Point>
+        # 3. If driving route then parse Placemark and starting/ending Placemarks
+        #    (There could be Placemarks in between so take the last Placemark for ending)
+        # 4. If routes of lines, parse each Placemark
+        pms: list[ET._Element] = folder.findall("k:Placemark", _NS)
+
+        if len(pms) == 0:
             continue
 
-        coords: list[tuple[float, float]] = []
-        for c in (coord_el.text or "").split():
-            parts = c.split(",")
-            lon, lat = map(float, parts[:2])
-            coords.append((lat, lon))
-
-        name, cfg = parse_cfg_in_name_tags((name_el.text or "").strip())
-        tracks.append((name, cfg, coords))
+        is_driving_route = len(pms) >= 2 and pms[1].find("k:Point", _NS) is not None
+        if is_driving_route:
+            parse_driving_placemarks(pms, tracks, path)
+        else:
+            parse_lines_placemarks(pms, tracks, path)
 
     return tracks

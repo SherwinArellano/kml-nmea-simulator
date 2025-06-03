@@ -23,3 +23,6 @@ class TrackInfo:
     coords: list[tuple[float, float]]
     total_dist: float
     path: str
+    raw_name: str
+    start_placemark: str | None
+    end_placemark: str | None

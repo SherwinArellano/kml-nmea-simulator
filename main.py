@@ -5,7 +5,6 @@ from core.services import ServiceManager, StreamingService, RESTService
 from core.track_manager import TrackManager
 from core.config import parse_args, build_app_cfg, load_yaml_config, AppConfig
 from core.utils import increment_all_track_numbers
-from core.walker import total_path_distance
 import sys
 import asyncio
 
@@ -22,10 +21,7 @@ async def main():
     # Synchronously load all TrackInfo
     tracks: list[TrackInfo] = []
     for path in cfg.kml_paths:
-        for name, track_cfg, coords in parse_tracks(path):
-            print(f"Loaded track: {name} (from {path})")
-            total_dist = total_path_distance(coords, track_cfg.loop)
-            tracks.append(TrackInfo(name, track_cfg, coords, total_dist, path))
+        tracks.extend(parse_tracks(path))
         increment_all_track_numbers(path, path)
 
     if not tracks:
