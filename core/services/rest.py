@@ -11,6 +11,7 @@ from core.utils import (
     run_tasks_with_error_logging,
     generate_code_trailer,
     generate_code_container,
+    increment_track_number,
 )
 from datetime import datetime, timedelta
 from urllib.parse import urljoin
@@ -89,7 +90,6 @@ class RESTService(Service):
         await self._client.aclose()
 
     async def start_polling(self, ti: TrackInfo, operation: Operation):
-
         try:
             builder = get_builder(ti.cfg.mode)
             if self.transports:
@@ -109,19 +109,15 @@ class RESTService(Service):
 
                 @player.repeat()
                 async def on_repeat(ti: TrackInfo):
+                    increment_track_number(ti)
                     print(f"⏭︎ {ti.name}: {ti.cfg}")
-
-                @player.error()
-                async def on_error(ti: TrackInfo, e: Exception):
-                    msg = f"An error occurred while playing track '{ti.name}': {str(e)}"
-                    print(msg)
-                    raise e  # Reraise error for the outer except to handle the error
 
                 await player.play()
         except asyncio.CancelledError:  # keyboard interrupt (Ctrl + C)
             op_status = OperationStatus(operation.operation_id, "02", None)
             await self.put_operation(op_status)
         except Exception as e:
-            print(f"An exception occured: {e}")
+            msg = f"An exception occured during play of track '{ti.name}' (with operation ID: {operation.operation_id}): {e}"
+            print(msg)
             op_status = OperationStatus(operation.operation_id, "03", str(e))
             await self.put_operation(op_status)

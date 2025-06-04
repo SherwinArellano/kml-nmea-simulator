@@ -21,8 +21,8 @@ async def main():
     # Synchronously load all TrackInfo
     tracks: list[TrackInfo] = []
     for path in cfg.kml_paths:
-        tracks.extend(parse_tracks(path))
         increment_all_track_numbers(path, path)
+        tracks.extend(parse_tracks(path))
 
     if not tracks:
         sys.exit("No tracks found in the provided KML files.")

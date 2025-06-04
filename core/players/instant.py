@@ -42,25 +42,19 @@ class InstantPlayer(TrackPlayer):
         self._emitter.emit("start", self.ti)
         await self._emitter.wait_for_complete()
 
-        try:
-            for ts, payload in self.generate_messages():
-                for t in self.transports:
-                    ctx = TransportContext(self.ti, payload)
-
-                    if app_cfg.filegen and app_cfg.filegen.mode == "single":
-                        ctx.set(TimestampParam(ts))
-
-                    t.send(ctx)
-
-            self._emitter.emit("end", self.ti)
-            await self._emitter.wait_for_complete()
-
-            # hacky solution for now to flush data from single file transport
+        for ts, payload in self.generate_messages():
             for t in self.transports:
-                if isinstance(t, SingleFileTransport):
-                    t.flush()
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self._emitter.emit("error", self.ti, e)
-            await self._emitter.wait_for_complete()
+                ctx = TransportContext(self.ti, payload)
+
+                if app_cfg.filegen and app_cfg.filegen.mode == "single":
+                    ctx.set(TimestampParam(ts))
+
+                t.send(ctx)
+
+        self._emitter.emit("end", self.ti)
+        await self._emitter.wait_for_complete()
+
+        # hacky solution for now to flush data from single file transport
+        for t in self.transports:
+            if isinstance(t, SingleFileTransport):
+                t.flush()

@@ -15,41 +15,35 @@ class SimulatedPlayer(TrackPlayer):
 
         await asyncio.sleep(cfg.delay_ms / 1000)
 
-        try:
-            while True:
-                self._emitter.emit("start", self.ti)
-                await self._emitter.wait_for_complete()
-
-                prev_point = None
-                for point in walk_path(self.ti.coords, step, cfg.loop):
-                    ctx = MessageContext(self.ti, point)
-
-                    if cfg.mode != "nmea":  # trk, trk-container
-                        ctx.set(TRKParams(prev_point))
-
-                    msgs = self.builder.build(ctx)
-                    for t in self.transports:
-                        for m in msgs:
-                            if AppConfig.get().verbose:
-                                print(m)
-                            t.send(TransportContext(self.ti, m.encode()))
-
-                    await asyncio.sleep(cfg.interval_ms / 1000)
-
-                    prev_point = point
-
-                self._emitter.emit("finish", self.ti)
-                await self._emitter.wait_for_complete()
-                if not cfg.repeat:
-                    break
-                else:
-                    self._emitter.emit("repeat", self.ti)
-                    await self._emitter.wait_for_complete()
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self._emitter.emit("error", self.ti, e)
+        while True:
+            self._emitter.emit("start", self.ti)
             await self._emitter.wait_for_complete()
+
+            prev_point = None
+            for point in walk_path(self.ti.coords, step, cfg.loop):
+                ctx = MessageContext(self.ti, point)
+
+                if cfg.mode != "nmea":  # trk, trk-container
+                    ctx.set(TRKParams(prev_point))
+
+                msgs = self.builder.build(ctx)
+                for t in self.transports:
+                    for m in msgs:
+                        if AppConfig.get().verbose:
+                            print(m)
+                        t.send(TransportContext(self.ti, m.encode()))
+
+                await asyncio.sleep(cfg.interval_ms / 1000)
+
+                prev_point = point
+
+            self._emitter.emit("finish", self.ti)
+            await self._emitter.wait_for_complete()
+            if not cfg.repeat:
+                break
+            else:
+                self._emitter.emit("repeat", self.ti)
+                await self._emitter.wait_for_complete()
 
     def repeat(self):
         return self._emitter.on("repeat")

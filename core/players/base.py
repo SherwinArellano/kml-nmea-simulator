@@ -25,6 +25,3 @@ class TrackPlayer(ABC):
 
     def finish(self):
         return self._emitter.on("finish")
-
-    def error(self):
-        return self._emitter.on("error")
