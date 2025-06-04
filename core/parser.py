@@ -67,8 +67,8 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
     lm = cfg.mode.lower()
     if lm in ("sea", "nmea"):
         cfg.mode = "nmea"
-    elif lm in ("land", "trk-auto"):
-        cfg.mode = "trk-auto"
+    elif lm in ("land", "trk-truck"):
+        cfg.mode = "trk-truck"
     elif lm in ("trk-container",):
         cfg.mode = "trk-container"
 

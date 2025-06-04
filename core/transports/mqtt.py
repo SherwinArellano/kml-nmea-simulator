@@ -11,7 +11,8 @@ class MQTTTransport(Transport):
 
     @override
     def send(self, ctx):
-        self.client.publish(f"{self.topic}/{ctx.ti.name}", ctx.payload)
+        topic = f"{self.topic}/{ctx.ti.cfg.mode}/{ctx.ti.cfg.dest_port}"
+        self.client.publish(topic, ctx.payload)
 
     @override
     def close(self):

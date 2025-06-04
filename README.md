@@ -5,7 +5,7 @@ A real‑time track simulator that streams simulated movement of one or more obj
 - **Track modes**:
 
   - **NMEA** (`mode=nmea` / `sea`): standard NMEA 0183 sentences (`$GPRMC`, `$GPGGA`, `$GPGLL`)
-  - **TRK-auto** (`mode=trk-auto` / `land`): custom `$TRK` messages for wheeled vehicles
+  - **TRK-truck** (`mode=trk-truck` / `land`): custom `$TRK` messages for wheeled vehicles
   - **TRK-container** (`mode=trk-container`): container tracking messages (one per minute by default)
 
 - **Emit channels**: UDP (`--udp HOST:PORT`), MQTT (`--mqtt BROKER:PORT`), or both
@@ -27,7 +27,7 @@ A real‑time track simulator that streams simulated movement of one or more obj
     - [Supported Tokens](#supported-tokens)
   - [Output Formats](#output-formats)
     - [1. NMEA (`mode=nmea`)](#1-nmea-modenmea)
-    - [2. TRK-auto (`mode=trk-auto`)](#2-trk-auto-modetrk-auto)
+    - [2. TRK-truck (`mode=trk-truck`)](#2-trk-truck-modetrk-truck)
     - [3. TRK-container (`mode=trk-container`)](#3-trk-container-modetrk-container)
   - [Adding New CLI / YAML and KML Options](#adding-new-cliyaml-and-kml-options)
     - [CLI / YAML Options](#cliyaml-options)
@@ -79,8 +79,10 @@ socat -u UDP-RECV:10110 STDOUT
 To listen in MQTT:
 
 ```bash
-mosquitto_sub -h localhost -t my/topic/#
+mosquitto_sub -h localhost -t <topic>/#
 ```
+
+> Where `<topic>` is set in `config.yaml` or given through CLI's `--topic`.
 
 ## Configuration (Inline in KML)
 
@@ -88,9 +90,7 @@ All settings are specified _inline_ in each KML `<Placemark><name>` tag—no ext
 
 ```xml
 <Placemark>
-  <name><![CDATA[
-    "Truck 1" velocity=30 interval=500 delay=2000 loop repeat mode=trk-auto source=truck
-  ]]></name>
+  <name><![CDATA[TR742-1 velocity=30 interval=500 delay=2000 loop repeat mode=trk-truck source=truck dest-port=A01]]></name>
   <LineString>
     <coordinates>
       12.4923,41.8902,0 12.4964,41.9028,0 ...
@@ -101,18 +101,18 @@ All settings are specified _inline_ in each KML `<Placemark><name>` tag—no ext
 
 ### Supported Tokens
 
-| Token                                      | Description                                                           | Default              | Notes                                                    |
-| ------------------------------------------ | --------------------------------------------------------------------- | -------------------- | -------------------------------------------------------- |
-| `mode=<nmea \| trk-auto \| trk-container>` | Protocol: `nmea`→NMEA, `trk-auto`→TRK, `trk-container`→container mode | `nmea`               | Selects the message format                               |
-| `velocity=<km/h>`                          | Travel speed in km/h                                                  | `5.0`                |                                                          |
-| `interval=<ms>`                            | Update interval between messages in milliseconds                      | `1000`               |                                                          |
-| `delay=<ms>`                               | Initial delay before streaming in milliseconds                        | `0`                  |                                                          |
-| `loop`                                     | Ping-pong along track (back and forth)                                | off                  |                                                          |
-| `repeat`                                   | Restart upon completion                                               | off                  |                                                          |
-| `source=<type>`                            | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)        | _(required for TRK)_ |                                                          |
-| `destination-port=<code>`                  | Destination port code (format: 1 letter + 2 digits, e.g., `A01`)      | `A01`                | Can be set manually; otherwise defaults to `A01`         |
-| `prov=<code or name>`                      | Province code or name (e.g., `GE` or `Genova`)                        | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
-| `comune=<code or name>`                    | Municipality (comune) code or name (e.g., `D969` or `Genova`)         | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
+| Token                                       | Description                                                            | Default              | Notes                                                    |
+| ------------------------------------------- | ---------------------------------------------------------------------- | -------------------- | -------------------------------------------------------- |
+| `mode=<nmea \| trk-truck \| trk-container>` | Protocol: `nmea`→NMEA, `trk-truck`→TRK, `trk-container`→container mode | `nmea`               | Selects the message format                               |
+| `velocity=<km/h>`                           | Travel speed in km/h                                                   | `5.0`                |                                                          |
+| `interval=<ms>`                             | Update interval between messages in milliseconds                       | `1000`               |                                                          |
+| `delay=<ms>`                                | Initial delay before streaming in milliseconds                         | `0`                  |                                                          |
+| `loop`                                      | Ping-pong along track (back and forth)                                 | off                  |                                                          |
+| `repeat`                                    | Restart upon completion                                                | off                  |                                                          |
+| `source=<type>`                             | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)         | _(required for TRK)_ |                                                          |
+| `dest-port=<code>`                          | Destination port code (format: 1 letter + 2 digits, e.g., `A01`)       | `A01`                | Can be set manually; otherwise defaults to `A01`         |
+| `prov=<code or name>`                       | Province code or name (e.g., `GE` or `Genova`)                         | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
+| `comune=<code or name>`                     | Municipality (comune) code or name (e.g., `D969` or `Genova`)          | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
 
 ## Output Formats
 
@@ -125,9 +125,9 @@ $GPRMC,143212.00,A,4128.6081,N,01229.7840,E,12.34,0.0,,,*5A
 ```
 
 - **UDP**: sent to `<host>:<port>`
-- **MQTT**: topic `<topic>/nmea/<track_id>`
+- **MQTT**: topic `<topic>/nmea/<port-id>`
 
-### 2. TRK-auto (`mode=trk-auto`)
+### 2. TRK-truck (`mode=trk-truck`)
 
 Custom `$TRK` messages for wheeled vehicles:
 
@@ -135,11 +135,11 @@ Custom `$TRK` messages for wheeled vehicles:
 $TRK,<ID>,<YYYYMMDDThhmmssZ>,<lat>,<lon>,<km/h>,<heading>*<checksum>
 ```
 
-Published over UDP and/or MQTT topic `<topic>/trk-auto/<ID>`.
+Published over UDP and/or MQTT topic `<topic>/trk-truck/<port-id>`.
 
 ### 3. TRK-container (`mode=trk-container`)
 
-Per-minute container tracking messages (one update every minute by default). Same `$TRK` format, under `<topic>/trk-container/<ID>`.
+Per-minute container tracking messages (one update every minute by default). Same `$TRK` format, under `<topic>/trk-container/<port-id>`.
 
 ## Adding New CLI / YAML and KML Options
 

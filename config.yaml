@@ -10,7 +10,7 @@ default_loop_mode: false
 # Restart after completing a whole track (included loop)
 default_repeat_mode: false
 
-# nmea | trk-auto | trk-container
+# trk-nmea | trk-truck | trk-container
 default_mode: nmea
 # Only required for trk modes
 default_source: truck
@@ -38,7 +38,7 @@ mqtt:
   enabled: false
   host: localhost
   port: 1883
-  topic: operations
+  topic: operation
 
 filegen:
   # If true, this mode becomes active, i.e. will generate files (can be set in cli args with `--filegen` option)

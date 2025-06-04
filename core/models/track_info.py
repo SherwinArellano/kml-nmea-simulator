@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-TrackMode = Literal["nmea", "trk-auto", "trk-container"]
+TrackMode = Literal["trk-nmea", "trk-truck", "trk-container"]
 
 
 @dataclass
