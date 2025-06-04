@@ -52,6 +52,9 @@ source venv/bin/activate # LINUX
 
 # Install packages
 pip install -r requirements.txt
+
+# Use sample kml files
+python migrate.py
 ```
 
 ## Usage
