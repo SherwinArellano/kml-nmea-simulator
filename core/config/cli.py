@@ -7,6 +7,8 @@ class Args(argparse.Namespace):
     udp_target: str | None
     mqtt_broker: str | None
     rest_target: str | None
+    rest_post: str
+    rest_put: str
     stream: bool | None
     topic: str
     nmea_types: str | None
@@ -122,6 +124,22 @@ def parse_args() -> Args:
         nargs="?",
         help="Backend service address to communicate with;\n"
         f"If address not provided, uses YAML-provided address otherwise defaults to {DEFAULT_REST_URL}\n",
+    )
+
+    parser.add_argument(
+        "--post",
+        dest="rest_post",
+        default="/api/operations",
+        help="Backend endpoint to send operation creation requests;\n"
+        "If not provided, defaults to /api/operations",
+    )
+
+    parser.add_argument(
+        "--put",
+        dest="rest_put",
+        default="/api/operations",
+        help="Backend endpoint to send operation status requests;\n"
+        "If not provided, defaults to /api/operations",
     )
 
     return parser.parse_args(namespace=Args())

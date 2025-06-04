@@ -13,6 +13,7 @@ from core.utils import (
     generate_code_container,
 )
 from datetime import datetime, timedelta
+from urllib.parse import urljoin
 import asyncio
 import math
 
@@ -24,18 +25,19 @@ class RESTService(Service):
         if not rest_cfg:
             raise RuntimeError("REST not set")
 
-        self.base_url = rest_cfg.url
+        self._cfg = rest_cfg
         self._client = httpx.AsyncClient()
         self._tasks: list[asyncio.Task] = []
 
     async def post_operation(self, operation: Operation):
-        url = f"{self.base_url}/api/operations"
+        url = urljoin(self._cfg.url, self._cfg.post)
         response = await self._client.post(url, json=asdict(operation))
         response.raise_for_status()
         return response
 
     async def put_operation(self, op_status: OperationStatus):
-        url = f"{self.base_url}/api/operations/{op_status.operation_id}"
+        url = urljoin(self._cfg.url, self._cfg.put)
+        url = urljoin(url + "/", str(op_status.operation_id))
         response = await self._client.put(url, json=asdict(op_status))
         response.raise_for_status()
         return response

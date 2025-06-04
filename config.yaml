@@ -61,3 +61,6 @@ rest:
   enabled: true
   # Backend's url for the simulator to communicate with
   url: http://localhost:8000
+  # Endpoints
+  post: /api/operations
+  put: /api/operations # this gets appended later like: /api/operations/<id>
