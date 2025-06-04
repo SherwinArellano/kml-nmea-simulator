@@ -34,7 +34,12 @@ def increment_all_track_numbers(path: str, output_path: str):
             continue
 
         # lxml wants explicit None‐check hence `if name_el is not None`
-        old_name = (name_el if name_el is not None else pm_name_el).text or ""
+        old_name = ""
+        if name_el is not None and _RE.match(name_el.text):
+            old_name = name_el.text
+        else:
+            old_name = pm_name_el.text
+
         new_name = _increment_name_if_exists(old_name)
         if not new_name:
             continue
@@ -58,7 +63,6 @@ def increment_track_number(ti: TrackInfo):
     )
 
     for name_el in matches:
-        print(f"[increment] {ti.name}: {name_el.text}")
         new_name = _increment_name_if_exists(name_el.text)
 
         if not new_name:
