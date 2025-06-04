@@ -29,6 +29,9 @@ A real‑time track simulator that streams simulated movement of one or more obj
     - [1. NMEA (`mode=nmea`)](#1-nmea-modenmea)
     - [2. TRK-auto (`mode=trk-auto`)](#2-trk-auto-modetrk-auto)
     - [3. TRK-container (`mode=trk-container`)](#3-trk-container-modetrk-container)
+  - [Adding New CLI / YAML and KML Options](#adding-new-cliyaml-and-kml-options)
+    - [CLI / YAML Options](#cliyaml-options)
+    - [KML Options](#kml-options)
 
 
 ## Installation
@@ -137,3 +140,46 @@ Published over UDP and/or MQTT topic `<topic>/trk-auto/<ID>`.
 ### 3. TRK-container (`mode=trk-container`)
 
 Per-minute container tracking messages (one update every minute by default). Same `$TRK` format, under `<topic>/trk-container/<ID>`.
+
+## Adding New CLI / YAML and KML Options
+
+### CLI / YAML Options
+
+**Configuration Priority:**
+
+1. **CLI arguments** → **YAML file** → **Defaults**
+
+2. **Edit `config.yaml`**
+
+- Under the relevant top-level section (e.g. `udp`, `mqtt`, `rest`), add your new key with a default and an `enabled: true/false` flag if needed.
+
+3. **Edit `config/cli.py`**
+
+- In the `Args` (or equivalent) class, add a new `parser.add_argument` entry whose name matches the YAML key (e.g. `--rest-timeout` for `rest.timeout`).
+
+4. **Edit `config/app.py`**
+
+- Add the field to the appropriate dataclass (or create a new `XXXConfig` module and export it via `config/__init__.py`).
+- In `AppConfig` (or the main builder), merge CLI → YAML → default by checking:
+
+  - If CLI flag is provided, use it.
+  - Else, if YAML block exists (and `enabled: true` or a value is set), use YAML.
+  - Otherwise, fall back to the hard-coded default.
+
+### KML Options
+
+1. **Edit `core/models/track_info.py`**
+
+- Add a new attribute to `TrackCfg` (or equivalent) with a sensible default (e.g. `alert_level: Optional[str] = None`).
+
+2. **Edit `code/parser.py`**
+
+- In the section that splits `<name>` into tokens, add logic so that when it sees your token (e.g. `alert-level=<value>` or a standalone flag), it assigns to the new `TrackCfg` field.
+
+3. **(Optional) Adjust Downstream Behavior**
+
+- If your new KML field should alter message formatting or simulator behavior, update the relevant formatter/emitter to check that field.
+
+4. **Test with Sample KML**
+
+- Create a `<Placemark>` containing the new token in `<name>`, run the simulator, and verify that the field is populated and, if applicable, that any behavior tied to it works as expected.
