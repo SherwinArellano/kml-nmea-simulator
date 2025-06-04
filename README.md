@@ -57,7 +57,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Check the help section on how to use the program by running:
+**IMPORTANT:** Check the help section on how to use the program by running:
 
 ```bash
 python main.py -h
@@ -98,16 +98,18 @@ All settings are specified _inline_ in each KML `<Placemark><name>` tag—no ext
 
 ### Supported Tokens
 
-| Token                                      | Description                                                           | Default              | Notes                      |
-| ------------------------------------------ | --------------------------------------------------------------------- | -------------------- | -------------------------- |
-| `mode=<nmea \| trk-auto \| trk-container>` | Protocol: `nmea`→NMEA, `trk-auto`→TRK, `trk-container`→container mode | `nmea`               | Selects the message format |
-| `velocity=<km/h>`                          | Travel speed in km/h                                                  | `5.0`                |                            |
-| `interval=<ms>`                            | Update interval between messages in milliseconds                      | `1000`               |                            |
-| `delay=<ms>`                               | Initial delay before streaming in milliseconds                        | `0`                  |                            |
-| `loop`                                     | Ping-pong along track (back and forth)                                | off                  |                            |
-| `repeat`                                   | Restart upon completion                                               | off                  |                            |
-| `source=<type>`                            | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)        | _(required for TRK)_ |                            |
-|                                            |
+| Token                                      | Description                                                           | Default              | Notes                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------- | -------------------- | -------------------------------------------------------- |
+| `mode=<nmea \| trk-auto \| trk-container>` | Protocol: `nmea`→NMEA, `trk-auto`→TRK, `trk-container`→container mode | `nmea`               | Selects the message format                               |
+| `velocity=<km/h>`                          | Travel speed in km/h                                                  | `5.0`                |                                                          |
+| `interval=<ms>`                            | Update interval between messages in milliseconds                      | `1000`               |                                                          |
+| `delay=<ms>`                               | Initial delay before streaming in milliseconds                        | `0`                  |                                                          |
+| `loop`                                     | Ping-pong along track (back and forth)                                | off                  |                                                          |
+| `repeat`                                   | Restart upon completion                                               | off                  |                                                          |
+| `source=<type>`                            | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)        | _(required for TRK)_ |                                                          |
+| `destination-port=<code>`                  | Destination port code (format: 1 letter + 2 digits, e.g., `A01`)      | `A01`                | Can be set manually; otherwise defaults to `A01`         |
+| `prov=<code or name>`                      | Province code or name (e.g., `GE` or `Genova`)                        | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
+| `comune=<code or name>`                    | Municipality (comune) code or name (e.g., `D969` or `Genova`)         | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
 
 ## Output Formats
 
