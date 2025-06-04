@@ -18,6 +18,7 @@ class SimulatedPlayer(TrackPlayer):
         try:
             while True:
                 self._emitter.emit("start", self.ti)
+                await self._emitter.wait_for_complete()
 
                 prev_point = None
                 for point in walk_path(self.ti.coords, step, cfg.loop):
@@ -38,14 +39,17 @@ class SimulatedPlayer(TrackPlayer):
                     prev_point = point
 
                 self._emitter.emit("finish", self.ti)
+                await self._emitter.wait_for_complete()
                 if not cfg.repeat:
                     break
                 else:
                     self._emitter.emit("repeat", self.ti)
+                    await self._emitter.wait_for_complete()
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self._emitter.emit("error", self.ti, e)
+            await self._emitter.wait_for_complete()
 
     def repeat(self):
         return self._emitter.on("repeat")

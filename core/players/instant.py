@@ -40,6 +40,7 @@ class InstantPlayer(TrackPlayer):
         app_cfg = AppConfig.get()
 
         self._emitter.emit("start", self.ti)
+        await self._emitter.wait_for_complete()
 
         try:
             for ts, payload in self.generate_messages():
@@ -52,6 +53,7 @@ class InstantPlayer(TrackPlayer):
                     t.send(ctx)
 
             self._emitter.emit("end", self.ti)
+            await self._emitter.wait_for_complete()
 
             # hacky solution for now to flush data from single file transport
             for t in self.transports:
@@ -61,3 +63,4 @@ class InstantPlayer(TrackPlayer):
             raise
         except Exception as e:
             self._emitter.emit("error", self.ti, e)
+            await self._emitter.wait_for_complete()

@@ -89,40 +89,39 @@ class RESTService(Service):
         await self._client.aclose()
 
     async def start_polling(self, ti: TrackInfo, operation: Operation):
-        op_status = OperationStatus(operation.operation_id, "01", None)
-        await self.put_operation(op_status)
 
         try:
             builder = get_builder(ti.cfg.mode)
-            op_status.status_code = "02"
             if self.transports:
                 player = SimulatedPlayer(ti, builder, self.transports)
 
                 @player.start()
-                def on_start(ti: TrackInfo):
+                async def on_start(ti: TrackInfo):
                     print(f"▶ {ti.name}: {ti.cfg}")
+                    op_status = OperationStatus(operation.operation_id, "01", None)
+                    await self.put_operation(op_status)
 
                 @player.finish()
-                def on_finish(ti: TrackInfo):
+                async def on_finish(ti: TrackInfo):
                     print(f"⏹︎ {ti.name}: {ti.cfg}")
+                    op_status = OperationStatus(operation.operation_id, "02", None)
+                    await self.put_operation(op_status)
 
                 @player.repeat()
-                def on_repeat(ti: TrackInfo):
+                async def on_repeat(ti: TrackInfo):
                     print(f"⏭︎ {ti.name}: {ti.cfg}")
 
                 @player.error()
-                def on_error(ti: TrackInfo, e: Exception):
+                async def on_error(ti: TrackInfo, e: Exception):
                     msg = f"An error occurred while playing track '{ti.name}': {str(e)}"
                     print(msg)
                     raise e  # Reraise error for the outer except to handle the error
 
                 await player.play()
         except asyncio.CancelledError:  # keyboard interrupt (Ctrl + C)
-            op_status.status_code = "02"
-        except Exception as e:
-            op_status.status_code = "03"
-            op_status.description = str(e)
+            op_status = OperationStatus(operation.operation_id, "02", None)
             await self.put_operation(op_status)
+        except Exception as e:
             print(f"An exception occured: {e}")
-        finally:
+            op_status = OperationStatus(operation.operation_id, "03", str(e))
             await self.put_operation(op_status)
