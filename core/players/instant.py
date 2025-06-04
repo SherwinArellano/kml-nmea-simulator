@@ -5,6 +5,7 @@ from core.transports import TransportContext, SingleFileTransport, TimestampPara
 from core.walker import walk_path
 from .base import TrackPlayer
 import time
+import asyncio
 
 
 class InstantPlayer(TrackPlayer):
@@ -38,16 +39,25 @@ class InstantPlayer(TrackPlayer):
     async def play(self):
         app_cfg = AppConfig.get()
 
-        for ts, payload in self.generate_messages():
+        self._emitter.emit("start", self.ti)
+
+        try:
+            for ts, payload in self.generate_messages():
+                for t in self.transports:
+                    ctx = TransportContext(self.ti, payload)
+
+                    if app_cfg.filegen and app_cfg.filegen.mode == "single":
+                        ctx.set(TimestampParam(ts))
+
+                    t.send(ctx)
+
+            self._emitter.emit("end", self.ti)
+
+            # hacky solution for now to flush data from single file transport
             for t in self.transports:
-                ctx = TransportContext(self.ti, payload)
-
-                if app_cfg.filegen and app_cfg.filegen.mode == "single":
-                    ctx.set(TimestampParam(ts))
-
-                t.send(ctx)
-
-        # hacky solution for now to flush data from single file transport
-        for t in self.transports:
-            if isinstance(t, SingleFileTransport):
-                t.flush()
+                if isinstance(t, SingleFileTransport):
+                    t.flush()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self._emitter.emit("error", self.ti, e)

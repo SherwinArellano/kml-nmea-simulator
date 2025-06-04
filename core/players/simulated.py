@@ -15,24 +15,37 @@ class SimulatedPlayer(TrackPlayer):
 
         await asyncio.sleep(cfg.delay_ms / 1000)
 
-        while True:
-            prev_point = None
-            for point in walk_path(self.ti.coords, step, cfg.loop):
-                ctx = MessageContext(self.ti, point)
+        try:
+            while True:
+                self._emitter.emit("start", self.ti)
 
-                if cfg.mode != "nmea":  # trk, trk-container
-                    ctx.set(TRKParams(prev_point))
+                prev_point = None
+                for point in walk_path(self.ti.coords, step, cfg.loop):
+                    ctx = MessageContext(self.ti, point)
 
-                msgs = self.builder.build(ctx)
-                for t in self.transports:
-                    for m in msgs:
-                        if AppConfig.get().verbose:
-                            print(m)
-                        t.send(TransportContext(self.ti, m.encode()))
+                    if cfg.mode != "nmea":  # trk, trk-container
+                        ctx.set(TRKParams(prev_point))
 
-                await asyncio.sleep(cfg.interval_ms / 1000)
+                    msgs = self.builder.build(ctx)
+                    for t in self.transports:
+                        for m in msgs:
+                            if AppConfig.get().verbose:
+                                print(m)
+                            t.send(TransportContext(self.ti, m.encode()))
 
-                prev_point = point
+                    await asyncio.sleep(cfg.interval_ms / 1000)
 
-            if not cfg.repeat:
-                break
+                    prev_point = point
+
+                self._emitter.emit("finish", self.ti)
+                if not cfg.repeat:
+                    break
+                else:
+                    self._emitter.emit("repeat", self.ti)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self._emitter.emit("error", self.ti, e)
+
+    def repeat(self):
+        return self._emitter.on("repeat")

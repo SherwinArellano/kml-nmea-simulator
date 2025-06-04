@@ -93,11 +93,29 @@ class RESTService(Service):
         await self.put_operation(op_status)
 
         try:
-            print(f"▶ {ti.name}: {ti.cfg}")
             builder = get_builder(ti.cfg.mode)
             op_status.status_code = "02"
             if self.transports:
                 player = SimulatedPlayer(ti, builder, self.transports)
+
+                @player.start()
+                def on_start(ti: TrackInfo):
+                    print(f"▶ {ti.name}: {ti.cfg}")
+
+                @player.finish()
+                def on_finish(ti: TrackInfo):
+                    print(f"⏹︎ {ti.name}: {ti.cfg}")
+
+                @player.repeat()
+                def on_repeat(ti: TrackInfo):
+                    print(f"⏭︎ {ti.name}: {ti.cfg}")
+
+                @player.error()
+                def on_error(ti: TrackInfo, e: Exception):
+                    msg = f"An error occurred while playing track '{ti.name}': {str(e)}"
+                    print(msg)
+                    raise e  # Reraise error for the outer except to handle the error
+
                 await player.play()
         except asyncio.CancelledError:  # keyboard interrupt (Ctrl + C)
             op_status.status_code = "02"
