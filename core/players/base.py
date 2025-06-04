@@ -21,7 +21,23 @@ class TrackPlayer(ABC):
     async def play(self): ...
 
     def start(self):
+        """
+        Decorator to register an async callback for the “start” event.
+
+        Handler signature:
+            async def handler(track_info: TrackInfo) -> None
+
+        This event fires immediately before playback begins.
+        """
         return self._emitter.on("start")
 
     def finish(self):
+        """
+        Decorator to register an async callback for the “finish” event.
+
+        Handler signature:
+            async def handler(track_info: TrackInfo) -> None
+
+        This event fires right after playback completes successfully.
+        """
         return self._emitter.on("finish")

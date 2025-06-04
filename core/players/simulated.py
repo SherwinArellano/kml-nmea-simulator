@@ -46,4 +46,12 @@ class SimulatedPlayer(TrackPlayer):
                 await self._emitter.wait_for_complete()
 
     def repeat(self):
+        """
+        Decorator to register an async callback for the “repeat” event.
+
+        Handler signature:
+            async def handler(track_info: TrackInfo) -> None
+
+        This event fires on each interval (i.e., every time a new coordinate is sent).
+        """
         return self._emitter.on("repeat")
