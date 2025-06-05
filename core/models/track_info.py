@@ -13,6 +13,7 @@ class TrackCfg:
     repeat: bool
     mode: TrackMode | str
     source: str  # boat, ship, truck, etc.
+    id_port: str
     dest_port: str
     prov: str
     comune: str

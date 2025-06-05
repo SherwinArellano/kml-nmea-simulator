@@ -8,6 +8,7 @@ import re
 _NS = {"k": "http://www.opengis.net/kml/2.2"}
 _RE = re.compile(r'^\s*(?:"([^"]+)"|(\S+))(.*)$')
 
+DEFAULT_ID_PORT = "001"
 DEFAULT_DESTINATION_PORT = "A01"
 
 parser = ET.XMLParser(remove_blank_text=True)
@@ -28,6 +29,7 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
         repeat=default_cfg.repeat_mode,
         mode=default_cfg.mode,
         source=default_cfg.source,
+        id_port=DEFAULT_ID_PORT,
         dest_port=DEFAULT_DESTINATION_PORT,
         prov="",
         comune="",
@@ -51,6 +53,8 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
                 cfg.mode = v.lower()
             elif k == "source":
                 cfg.source = v.lower()
+            elif k == "id-port":
+                cfg.id_port = v
             elif k == "dest-port":
                 cfg.dest_port = v.upper()
             elif k == "prov":

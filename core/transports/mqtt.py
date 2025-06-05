@@ -12,7 +12,7 @@ class MQTTTransport(Transport):
 
     @override
     def send(self, ctx):
-        topic = f"{self.topic}/{ctx.ti.cfg.mode}/{ctx.ti.cfg.dest_port}"
+        topic = f"{self.topic}/{ctx.ti.cfg.mode}/{ctx.ti.cfg.id_port}"
         self.client.publish(topic, ctx.payload)
         if AppConfig.get().verbose:
             print(f"[MQTT:{topic}] {ctx.payload.decode()}")

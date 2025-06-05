@@ -93,7 +93,7 @@ All settings are specified _inline_ in each KML `<Placemark><name>` tag—no ext
 
 ```xml
 <Placemark>
-  <name><![CDATA[TR742-1 velocity=30 interval=500 delay=2000 loop repeat mode=trk-truck source=truck dest-port=A01]]></name>
+  <name><![CDATA[TR742-1 velocity=30 interval=500 delay=2000 loop repeat mode=trk-truck source=truck id-port=001 dest-port=A01]]></name>
   <LineString>
     <coordinates>
       12.4923,41.8902,0 12.4964,41.9028,0 ...
@@ -113,6 +113,7 @@ All settings are specified _inline_ in each KML `<Placemark><name>` tag—no ext
 | `loop`                                      | Ping-pong along track (back and forth)                                 | off                  |                                                          |
 | `repeat`                                    | Restart upon completion                                                | off                  |                                                          |
 | `source=<type>`                             | Object type (e.g., `truck`, `car`, `ship`, `boat`, `tug-boat`)         | _(required for TRK)_ |                                                          |
+| `id-port=<code>`                            | Starting code port (format: 3 digits, e.g., `001`)                     | `001`                | Can be set manually; otherwise defaults to `001`         |
 | `dest-port=<code>`                          | Destination port code (format: 1 letter + 2 digits, e.g., `A01`)       | `A01`                | Can be set manually; otherwise defaults to `A01`         |
 | `prov=<code or name>`                       | Province code or name (e.g., `GE` or `Genova`)                         | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
 | `comune=<code or name>`                     | Municipality (comune) code or name (e.g., `D969` or `Genova`)          | _(auto-detect)_      | Auto-detected from track `<name>` or can be set manually |
