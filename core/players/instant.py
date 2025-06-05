@@ -5,7 +5,6 @@ from core.transports import TransportContext, SingleFileTransport, TimestampPara
 from core.walker import walk_path
 from .base import TrackPlayer
 import time
-import asyncio
 
 
 class InstantPlayer(TrackPlayer):
@@ -29,8 +28,6 @@ class InstantPlayer(TrackPlayer):
             msgs = self.builder.build(ctx)
 
             for m in msgs:
-                if AppConfig.get().verbose:
-                    print(m)
                 yield epoch_s, m.encode()
 
             prev_point = point
