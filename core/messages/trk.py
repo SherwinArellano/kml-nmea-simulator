@@ -2,6 +2,7 @@ from typing import override
 from core.messages import MessageBuilder
 from core.geodesy import _GEO, checksum
 from core.utils import CallParams
+from datetime import datetime, timezone
 import time
 
 
@@ -29,7 +30,14 @@ class TRKBuilder(MessageBuilder):
         ti = ctx.ti
         cfg = ti.cfg
         point = ctx.point
-        ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(ctx.epoch_s))
+        epoch_s = ctx.epoch_s or time.time()
+
+        # format: YYYY-MM-DDTHH:mm:ss.sssZ
+        ts = (
+            datetime.fromtimestamp(epoch_s, tz=timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
 
         # Calculate heading (bearing)
         azi = 0.0
