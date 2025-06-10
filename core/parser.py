@@ -37,6 +37,7 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
 
     name = m.group(1) or m.group(2)
     seen_interval = False
+    seen_source = False
 
     # iterate tokens like 'velocity=30', 'interval=500', 'mode=trk-container'
     for tok in m.group(3).split():
@@ -53,6 +54,7 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
                 cfg.mode = v.lower()
             elif k == "source":
                 cfg.source = v.lower()
+                seen_source = True
             elif k == "id-port":
                 cfg.id_port = v
             elif k == "dest-port":
@@ -79,6 +81,10 @@ def parse_cfg_in_name_tags(text: str) -> tuple[str, TrackCfg]:
     # default interval for container if not overridden
     if cfg.mode == "trk-container" and not seen_interval:
         cfg.interval_ms = 60_000
+
+    # normalize source vehicle for NMEA mode
+    if cfg.source == "truck" and not seen_source:
+        cfg.source = "ship"
 
     return name, cfg
 
