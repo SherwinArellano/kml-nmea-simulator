@@ -11,7 +11,7 @@ default_loop_mode: false
 default_repeat_mode: false
 
 # trk-nmea | trk-truck | trk-container
-default_mode: nmea
+default_mode: trk-nmea
 # Only required for trk modes
 default_source: truck
 
