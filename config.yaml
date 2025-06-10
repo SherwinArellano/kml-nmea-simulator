@@ -37,6 +37,7 @@ mqtt:
   # If true, this mode becomes active, i.e will send to MQTT (can be set in cli args with `--mqtt` option)
   enabled: false
   host: localhost
+  # if ws/wss, port is ignored
   port: 1883
   topic: operation
 
