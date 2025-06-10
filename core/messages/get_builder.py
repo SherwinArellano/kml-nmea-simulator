@@ -5,7 +5,7 @@ from .trk import TRKBuilder
 
 
 def get_builder(mode: TrackMode | str) -> MessageBuilder:
-    if mode == "nmea":
+    if mode == "trk-nmea":
         return NMEABuilder()
 
     return TRKBuilder()

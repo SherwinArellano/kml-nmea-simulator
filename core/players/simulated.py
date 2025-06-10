@@ -22,7 +22,7 @@ class SimulatedPlayer(TrackPlayer):
             for point in walk_path(self.ti.coords, step, cfg.loop):
                 ctx = MessageContext(self.ti, point)
 
-                if cfg.mode != "nmea":  # trk, trk-container
+                if cfg.mode != "trk-nmea":
                     ctx.set(TRKParams(prev_point))
 
                 msgs = self.builder.build(ctx)

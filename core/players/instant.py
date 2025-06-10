@@ -22,7 +22,7 @@ class InstantPlayer(TrackPlayer):
             epoch_s = start + idx * step_s
             ctx = MessageContext(self.ti, point, epoch_s)
 
-            if ti.cfg.mode != "nmea":  # trk, trk-container
+            if ti.cfg.mode != "trk-nmea":
                 ctx.set(TRKParams(prev_point))
 
             msgs = self.builder.build(ctx)
